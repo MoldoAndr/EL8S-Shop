@@ -14,48 +14,61 @@
                 opacity: 0;
                 transform: translateY(-10px);
             }
-
             to {
                 opacity: 1;
                 transform: translateY(0);
             }
         }
-
+    
         .nav-link {
             transition: all 0.3s ease;
         }
-
+    
         .nav-link:hover {
             transform: translateY(-2px);
         }
-
+    
         .header-gradient {
             background: linear-gradient(90deg, #1a202c 0%, #2d3748 100%);
         }
-
+    
         .content-iframe {
             width: 100%;
-            height: 800px;
+            height: 700px;
             border: none;
             border-radius: 0.75rem;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         }
-
+    
         .product-card {
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
-
+    
         .product-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 15px 25px rgba(0, 0, 0, 0.2);
+        }
+    
+        /* Add your vibrant background here */
+        body {
+            background: linear-gradient(135deg, #4158D0 0%, #C850C0 46%, #FFCC70 100%);
+        }
+    
+        /* Make product containers have slightly transparent background */
+        .bg-white {
+            background: rgba(255, 255, 255, 0.9);
+        }
+    
+        .dark .bg-gray-800 {
+            background: rgba(31, 41, 55, 0.9);
         }
     </style>
 </head>
 
 <body
     class="bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 font-sans leading-normal text-gray-800 dark:text-gray-200 min-h-screen">
-    <header class="header-gradient shadow-lg">
-        <div class="container mx-auto px-4 py-6 flex flex-wrap items-center justify-between">
+    <header class="header-gradient shadow-lg fixed top-0 left-0 right-0 z-50">
+            <div class="container mx-auto px-4 py-6 flex flex-wrap items-center justify-between">
             <a href="/" class="flex items-center text-white group" aria-label="Electronics Shop Home">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round"
                     stroke-linejoin="round" stroke-width="2"
@@ -76,8 +89,8 @@
             </nav>
         </div>
     </header>
-    <main class="mx-auto px-4 flex flex-col items-center justify-center">
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-4 max-w-9xl h-full w-full my-8 animate-fadeIn">
+    <main class="mx-auto px-4 flex flex-col items-center justify-center pt-24">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-4 max-w-9xl h-full w-full my-8 animate-fadeIn">
             {{ if template == 'Service' }}
             <iframe src="{{ permalink }}" class="content-iframe" title="Service Page Content"></iframe>
             {{ else }}

@@ -25,7 +25,7 @@ import { FileHistoryComponent } from './components/file-history/file-history.com
     }
     
     .app-header {
-      background-color: #3b82f6;
+      background-color:rgb(16, 29, 49);
       color: white;
       padding: 1rem;
       border-radius: 0.5rem;

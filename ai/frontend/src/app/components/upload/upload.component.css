@@ -7,8 +7,8 @@
 
 h2 {
   margin-top: 0;
-  color: #2563eb;
-  font-size: 1.5rem;
+  color: #323b4c;
+  font-size: 2.0rem;
   margin-bottom: 1.5rem;
   border-bottom: 2px solid #e5e7eb;
   padding-bottom: 0.5rem;
@@ -64,11 +64,11 @@ label {
 }
 
 .submit-button:hover:not(:disabled) {
-  background-color: #1d4ed8;
+  background-color: #0f005b;
 }
 
 .submit-button:disabled {
-  background-color: #93c5fd;
+  background-color: #abc6e5;
   cursor: not-allowed;
 }
 
