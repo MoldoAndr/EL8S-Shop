@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cms
+  labels:
+    app: cms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cms
+  template:
+    metadata:
+      labels:
+        app: cms
+    spec:
+      containers:
+      - name: cms
+        image: kind-registry:5000/cms:latest
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - mountPath: /var/www/html
+          name: cms-content
+      volumes:
+      - name: cms-content
+        hostPath:
+          path: /mnt/myproject
+          type: Directory
+

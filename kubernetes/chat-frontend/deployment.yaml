@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-frontend
+  labels:
+    app: chat-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chat-frontend
+  template:
+    metadata:
+      labels:
+        app: chat-frontend
+    spec:
+      containers:
+        - name: chat-frontend
+          image: kind-registry:5000/chat-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 90
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-frontend
+spec:
+  selector:
+    app: chat-frontend
+  ports:
+    - port: 90
+      targetPort: 90
+  type: ClusterIP

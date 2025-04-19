@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-backend
+  labels:
+    app: chat-backend
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: chat-backend
+  template:
+    metadata:
+      labels:
+        app: chat-backend
+    spec:
+      containers:
+        - name: chat-backend
+          image: kind-registry:5000/chat-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 88
+          env:
+            - name: MONGO_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: chat-config
+                  key: MONGO_URI
+            - name: PORT_WS
+              valueFrom:
+                configMapKeyRef:
+                  name: chat-config
+                  key: PORT_WS
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: chat-config
+                  key: NODE_ENV
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-backend
+spec:
+  selector:
+    app: chat-backend
+  ports:
+    - port: 88
+      targetPort: 88
+  type: ClusterIP
