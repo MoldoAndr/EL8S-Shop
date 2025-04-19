@@ -129,15 +129,6 @@ Aplicația este compusă din mai multe componente-cheie:
 3. Persistența datelor este asigurată prin volume persistente pentru bazele de date locale.
 4. Pentru serviciile Azure, sunt utilizate credențiale securizate stocate în Kubernetes Secrets.
 
-## Cerințe pentru Prezentare
-
-În ziua prezentării, asigurați-vă că:
-1. Mașinile Kubernetes (două) sunt pregătite și pornite
-2. Addon-urile (registry, etc.) sunt funcționale
-3. Containerele personalizate sunt deja construite și disponibile în registry
-4. Toată arhitectura poate fi pornită cu o singură comandă `kubectl apply`
-5. Nu sunt necesare modificări manuale după aplicarea configurației
-
 ## Resurse Adiționale
 
 - [Documentație Kubernetes](https://kubernetes.io/docs/)
