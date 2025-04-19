@@ -1,0 +1,58 @@
+services:
+  mongodb:
+    build: ./mongodb
+    container_name: chat-mongodb
+    restart: always
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - chat-network
+
+  backend:
+    build: ./backend
+    restart: always
+    environment:
+      - PORT_WS=88
+      - MONGO_URI=mongodb://mongodb:27017/chatapp
+      - NODE_ENV=production
+    expose:
+      - "88"
+    depends_on:
+      - mongodb
+    networks:
+      - chat-network
+    deploy:
+      mode: replicated
+      replicas: 4
+
+  frontend:
+    build: ./frontend
+    container_name: chat-frontend
+    restart: always
+    ports:
+      - "90:90"
+    depends_on:
+      - backend
+    networks:
+      - chat-network
+
+  apache:
+    build: ./apache
+    container_name: chat-apache
+    restart: always
+    # ports:
+    #  - "80:80"
+    expose:
+      - "80" 
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - chat-network
+
+volumes:
+  mongo-data:
+
+networks:
+  chat-network:
+    driver: bridge

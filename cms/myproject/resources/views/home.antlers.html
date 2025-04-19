@@ -1,0 +1,32 @@
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-6 text-center">
+        Our Products
+    </h1>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {{ collection:products published="true" }}
+        <div class="bg-white dark:bg-gray-900 rounded-lg shadow-lg overflow-hidden relative">
+            <a href="{{ url }}" class="absolute inset-0 z-10" aria-label="View {{ title }} details"></a>
+            {{ if image }}
+              <img src="{{ image }}" alt="{{ title }}" class="w-full h-48 object-cover">
+            {{ /if }}
+            <div class="p-4 flex flex-col h-full">
+              <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200">
+                {{ title }}
+              </h2>
+              <p class="text-gray-600 dark:text-gray-400 mt-2 overflow-hidden h-12">
+                {{ truncate:description limit="100" }}
+              </p>
+              <p class="text-green-600 dark:text-green-400 font-bold mt-2">
+                ${{ price }}
+              </p>
+              <div class="mt-auto pt-4 relative z-20">
+                <span class="inline-block bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition cursor-pointer">
+                  View Details
+                </span>
+              </div>
+            </div>
+          </div>
+        {{ /collection:products }}
+    </div>
+</div>

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="{{ site:short_locale }}">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title ?? site:name }}</title>
+    {{ vite src="resources/js/site.js|resources/css/site.css" }}
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .nav-link {
+            transition: all 0.3s ease;
+        }
+
+        .nav-link:hover {
+            transform: translateY(-2px);
+        }
+
+        .header-gradient {
+            background: linear-gradient(90deg, #1a202c 0%, #2d3748 100%);
+        }
+
+        .content-iframe {
+            width: 100%;
+            height: 800px;
+            border: none;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .product-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 25px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+
+<body
+    class="bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 font-sans leading-normal text-gray-800 dark:text-gray-200 min-h-screen">
+    <header class="header-gradient shadow-lg">
+        <div class="container mx-auto px-4 py-6 flex flex-wrap items-center justify-between">
+            <a href="/" class="flex items-center text-white group" aria-label="Electronics Shop Home">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round"
+                    stroke-linejoin="round" stroke-width="2"
+                    class="w-12 h-12 text-white p-2 bg-blue-600 rounded-full group-hover:bg-blue-700 transition colors duration-300"
+                    viewBox="0 0 24 24">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                </svg>
+                <span
+                    class="ml-4 text-2xl font-bold tracking-tight group-hover:text-blue-300 transition-colors duration-300">Top Notch Electronics</span>
+            </a>
+            <nav class="mt-4 md:mt-0 md:ml-auto flex flex-wrap items-center justify-center space-x-6">
+                <a href="/chat"
+                    class="nav-link text-lg text-gray-100 hover:text-white hover:shadow-md px-3 py-2 rounded-md font-bold"
+                    style="animation: fadeIn 0.6s ease-out;">Chat With An Admin</a>
+                <a href="/ai"
+                    class="nav-link text-lg text-gray-100 hover:text-white hover:shadow-md px-3 py-2 rounded-md font-bold"
+                    style="animation: fadeIn 0.7s ease-out;">AI Component</a>
+            </nav>
+        </div>
+    </header>
+    <main class="mx-auto px-4 flex flex-col items-center justify-center">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-4 max-w-9xl h-full w-full my-8 animate-fadeIn">
+            {{ if template == 'Service' }}
+            <iframe src="{{ permalink }}" class="content-iframe" title="Service Page Content"></iframe>
+            {{ else }}
+            {{ template_content }}
+            {{ /if }}
+        </div>
+    </main>
+</body>
+
+</html>

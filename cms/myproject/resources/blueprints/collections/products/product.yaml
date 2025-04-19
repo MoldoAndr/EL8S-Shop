@@ -1,0 +1,53 @@
+title: Product
+tabs:
+  main:
+    display: Main
+    sections:
+      -
+        fields:
+          -
+            handle: title
+            field:
+              type: text
+              required: true
+              validate:
+                - required
+              display: Title
+              listable: true
+          -
+            handle: slug
+            field:
+              type: slug
+              localizable: true
+              validate: 'max:200'
+              display: Slug
+              listable: true
+          -
+            handle: description
+            field:
+              type: markdown
+              display: Description
+          -
+            handle: price
+            field:
+              type: float
+              display: Price
+              listable: true
+          -
+            handle: image
+            field:
+              max_files: 1
+              container: assets
+              type: assets
+              display: Image
+              listable: true
+          -
+            handle: published
+            field:
+              type: toggle
+              display: Published
+              listable: true
+  sidebar:
+    display: Sidebar
+    sections:
+      - {  }

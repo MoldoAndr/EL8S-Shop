@@ -1,0 +1,34 @@
+version: '3.8'
+services:
+  statamic:
+    image: shinsenter/statamic:latest
+    container_name: statamic_app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./myproject:/var/www/html
+    environment:
+      - APP_URL=http://localhost
+      - PHP_MEMORY_LIMIT=512M
+      - PHP_UPLOAD_MAX_FILESIZE=10M
+      - PHP_POST_MAX_SIZE=10M
+    networks:
+      - statamic_network
+  db:
+    image: mysql:8.1
+    container_name: statamic_db
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=statamic
+      - MYSQL_USER=statamic
+      - MYSQL_PASSWORD=statamic
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - statamic_network
+networks:
+  statamic_network:
+    driver: bridge
+volumes:
+  db_data:

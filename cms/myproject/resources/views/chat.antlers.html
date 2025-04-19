@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="{{ site:short_locale }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: sans-serif;
+            color: #1f2937;
+            background: transparent;
+            padding: 0;
+            margin: 0;
+        }
+        .dark body {
+            color: #e5e7eb;
+        }
+        .content {
+            padding: 1rem;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body class="{{ if theme == 'dark' }}dark{{ /if }}">
+    <div class="content">
+        <iframe src="http://localhost:90" class="content-iframe" title="Service Page Content"></iframe>
+    </div>
+</body>
+</html>
