@@ -5,7 +5,7 @@ metadata:
   labels:
     app: cms
 spec:
-  replicas: 1
+  replicas: 4  # Running 4 replicas as required
   selector:
     matchLabels:
       app: cms
@@ -14,6 +14,15 @@ spec:
       labels:
         app: cms
     spec:
+      initContainers:
+      - name: copy-content
+        image: busybox
+        command: ['sh', '-c', 'cp -R /source/* /dest/ || true']
+        volumeMounts:
+        - name: host-content
+          mountPath: /source
+        - name: cms-content
+          mountPath: /dest
       containers:
       - name: cms
         image: kind-registry:5000/cms:latest
@@ -23,8 +32,9 @@ spec:
         - mountPath: /var/www/html
           name: cms-content
       volumes:
-      - name: cms-content
+      - name: host-content
         hostPath:
           path: /mnt/myproject
           type: Directory
-
+      - name: cms-content
+        emptyDir: {}

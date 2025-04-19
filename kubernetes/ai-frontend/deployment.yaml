@@ -20,15 +20,3 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 91
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: ai-frontend
-spec:
-  selector:
-    app: ai-frontend
-  ports:
-    - port: 91
-      targetPort: 91
-  type: ClusterIP

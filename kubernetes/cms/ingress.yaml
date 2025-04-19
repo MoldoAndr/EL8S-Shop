@@ -5,9 +5,9 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
-  ingressClassName: nginx            # important
+  ingressClassName: nginx
   rules:
-  - host: localhost                  # <─ this must be “localhost”
+  - host: localhost
     http:
       paths:
       - path: /
@@ -17,4 +17,31 @@ spec:
             name: cms
             port:
               number: 80
-
+      - path: /chat
+        pathType: Prefix
+        backend:
+          service:
+            name: chat-frontend
+            port:
+              number: 90
+      - path: /ai
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-frontend
+            port:
+              number: 91
+      - path: /ws
+        pathType: Prefix
+        backend:
+          service:
+            name: chat-backend
+            port:
+              number: 88
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-backend
+            port:
+              number: 89

@@ -1,3 +1,4 @@
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,15 +21,11 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 90
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: chat-frontend
-spec:
-  selector:
-    app: chat-frontend
-  ports:
-    - port: 90
-      targetPort: 90
-  type: ClusterIP
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: chat-frontend-nginx-config

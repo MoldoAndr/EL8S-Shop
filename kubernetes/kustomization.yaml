@@ -8,8 +8,10 @@ resources:
   - common/ingress.yaml
   - chat-backend/deployment.yaml
   - chat-frontend/deployment.yaml
+  - chat-frontend/nginx-config.yaml
+  - chat-frontend/service.yaml  # Add this line
   - ai-backend/deployment.yaml
   - ai-frontend/deployment.yaml
+  - ai-frontend/service.yaml   # Add this line
   - cms/deployment.yaml
   - cms/service.yaml
-  - cms/ingress.yaml
