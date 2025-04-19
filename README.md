@@ -1,40 +1,147 @@
-https://camo.githubusercontent.com/9fb8c7cad55c2ac1f2f94927172a2fd43f1ca48993952ac62f87684664309ee1/68747470733a2f2f74656368737461636b2d67656e657261746f722e76657263656c2e6170702f6b756265726e657465732d69636f6e2e737667
+![Kubernetes](https://camo.githubusercontent.com/9fb8c7cad55c2ac1f2f94927172a2fd43f1ca48993952ac62f87684664309ee1/68747470733a2f2f74656368737461636b2d67656e657261746f722e76657263656c2e6170702f6b756265726e657465732d69636f6e2e737667)
 
-Obiectivul temei este de a crea un website ce contine o aplicatie de chat si o aplicatie de IA. Tema va fi implementată folosind mai multe deployment-uri gestionate de un cluster de Kubernetes. Arhitectura acestei aplicatii va cuprinde mai multe elemente:
+# Aplicație Web cu Chat și Servicii de IA pe Kubernetes
 
-   Site-ul web efectiv va fi ținut pe un content management system (CMS).
+## Obiectivul Proiectului
 
-   Acestei teme ii este asignată Statamic cu 4 replici.
-   Site-ul va fi expus pe portul 80.
-   Puteti folosi webgui-ul/sau abordarea code-first pentru a construi un mic site pentru un magazin, o pizzerie, o postare de tip articol blog. Alegerea e a voastra (nu pierdeti mult timp dar nici nu läsati pagina goală).
-   Sistemul de CMS va folosi o bază de date proprie, pe aceasta o puteti identifica in documentatia specifică. Unele CMS-uri permit mai multe variante de baze de date. Alegerea este la latitudinea voastră.
+Obiectivul acestui proiect este dezvoltarea unui website complex care integrează o aplicație de chat și o aplicație de Inteligență Artificială. Implementarea va fi realizată folosind mai multe deployment-uri gestionate de un cluster Kubernetes, asigurând astfel o arhitectură scalabilă și flexibilă.
 
-   Sistemul de chat va fi introdus in pagina web a CMS-ului folosind un iframe html.
+## Arhitectura Generală
 
-   Implementarea backend-ului de chat se va realiza folosind protocolul WebSocket. Codul pentru acesta se va afla pe un server web. Acestei teme ii este asignată folosirea Node.js+Apache cu 4 replici.
-   Serverul de chat va fi expus pe portul 88.
-   Partea de client va fi implementată folosind un framework de frontend. Acestei teme ii este asignată folosirea Angular cu 1 replică.
-   Clientul de chat va fi expus pe portul 90.
-   Pentru stocarea mesajelor in baza de date, se vor salva următoarele: numele utilizatorului sursă, mesajul în format text, ASCII; timestamp-ul trimiterii mesajului.
-   Pagina de chat va contine un formular în care se introduce un mesaj text, şi va avea un buton de trimitere. Vor fi afisate si mesajele din trecut (aflate in baza de date) in ordine cronologică.
-   Chatul va fi introdus în pagina CMS-ului printr-un iframe.
+Aplicația este compusă din mai multe componente-cheie:
 
-   Aplicatia de IA va fi introdusă în pagina web a CMS-ului folosind un iframe html.
+### 1. Sistemul de Management al Conținutului (CMS)
 
-   Această aplicatie va reprezenta o pagină web ce va permite upload-ul unui fişier care va fi procesat apoi de un sistem de IA.
-   Partea de client va fi implementată folosind un framework de frontend. Acestei teme ii este asignată folosirea Angular cu 1 replică.
-   Se va menține un istoric cu toate cererile realizate si rezultatele obtinute.
-   Fisierele vor fi stocate folosind blob storage-ul Azure.
-   Informatiile despre fişiere (nume, adresa blob, timestamp, rezultat procesare) vor fi stocate intr-o bază de date SQL hostată în Azure.
-   Fisierele vor fi procesate folosind un serviciu de IA. Acestei teme îi este asignat serviciul speech translation.
-   Aplicatia de IA va fi introdusă în pagina CMS-ului printr-un iframe.
+- **Platforma**: Statamic
+- **Replici**: 4
+- **Port expus**: 80
+- **Funcționalitate**: Oferă interfața principală a site-ului web pentru un magazin online de produse electronice
+- **Persistența datelor**: Bază de date dedicată pentru stocarea conținutului site-ului
+- **Integrare**: Include iframe-uri pentru componentele de chat și IA
 
-   Pentru majoritatea componentelor este recomandat să folosiți containere de pe Dockerhub. În general le puteți folosi cu doar mici modificări. Este posibil să fie nevoie să vă creați propriile imagini. Se vor avea în vedere Dockerfile-urile de tip multi-stage pentru reducerea dimensiunilor.
+### 2. Sistemul de Chat
 
-   Pentru containerul care tine serverul web ce expune chat-ul va trebui să implementați voi codul şi să creați o imagine custom. Atenție, orice imagine custom va fi stocată de un registry privat al clusterului.
+#### Backend Chat (WebSocket)
+- **Tehnologie**: Node.js cu server WebSocket + Apache
+- **Replici**: 4
+- **Port expus**: 88
+- **Funcționalitate**: Gestionează comunicarea în timp real între utilizatori
+- **Persistența datelor**: MongoDB pentru stocarea mesajelor (nume utilizator, mesaj text în format ASCII, timestamp)
 
-   Tema va consta într-o serie de fişiere de tip .yaml (şi alte fişiere de configurare inițiale). Întreaga arhitectură va trebui pornită dintr-o singură comandă apply. Odată executată comanda apply totul va trebui să funcționeze. Când prezentați nu va fi permis să faceți nicio modificare după ce dați apply, nici măcar la CMS.
+#### Frontend Chat
+- **Framework**: Angular
+- **Replici**: 1
+- **Port expus**: 90
+- **Funcționalitate**: Interfața utilizator pentru sistemul de chat, care afișează mesajele în ordine cronologică și permite trimiterea de mesaje noi
 
-   Pentru fiecare componentă se va crea un folder în care se va afla fişierul Dockerfile alături de oricare alte fişiere (cod, export bază de date, ş.a.m.d.).
+### 3. Aplicația de Inteligență Artificială
 
-   În ziua prezentării, maşinile Kubernetes (două) trebuie să fie pregătite și pornite. La fel si addon-urile (de ex. registry). Containerele ce necesită acest lucru trebuie să fie deja build-uite și puse în registry.
+#### Backend IA
+- **Funcționalitate**: Procesează fișierele încărcate utilizând serviciul Azure de Speech Translation
+- **Persistența datelor**: 
+  - Azure Blob Storage pentru stocarea fișierelor
+  - Bază de date SQL în Azure pentru metadate (nume fișier, URL blob, timestamp, rezultat procesare)
+
+#### Frontend IA
+- **Framework**: Angular
+- **Replici**: 1
+- **Port expus**: 91
+- **Funcționalitate**: Permite încărcarea fișierelor audio și afișează istoricul procesărilor anterioare cu rezultatele obținute
+
+## Structura Proiectului
+
+```
+/
+├── cms/                      # Configurare Statamic CMS
+│   ├── myproject/            # Codul sursă al aplicației CMS
+│   ├── docker-compose.yml    # Configurare Docker pentru dezvoltare locală
+│
+├── chat/                     # Aplicația de Chat
+│   ├── frontend/             # Client Angular pentru chat
+│   ├── backend/              # Server WebSocket Node.js
+│   ├── mongodb/              # Configurare MongoDB
+│   ├── apache/               # Configurare server Apache
+│   ├── docker-compose.yml    # Configurare Docker pentru dezvoltare locală
+│
+├── ai/                       # Aplicația de IA
+│   ├── frontend/             # Client Angular pentru încărcare și vizualizare
+│   ├── backend/              # Server pentru procesarea fișierelor
+│   ├── README.md             # Documentație specifică componentei de IA
+│   ├── docker-compose.yml    # Configurare Docker pentru dezvoltare locală
+│
+├── kubernetes/               # Configurări Kubernetes
+│   ├── cms/                  # Manifest-uri pentru CMS
+│   ├── chat/                 # Manifest-uri pentru Chat
+│   ├── ai/                   # Manifest-uri pentru IA
+│   ├── common/               # Resurse comune (PersistentVolumes, ConfigMaps, Secrets)
+│   └── deploy-all.yaml       # Script pentru implementarea întregii aplicații
+│
+└── README.md                 # Documentația principală (acest fișier)
+```
+
+## Implementare
+
+### Cerințe preliminare
+
+1. Un cluster Kubernetes cu cel puțin două noduri
+2. Addon-uri instalate:
+   - Registry privat pentru imagini Docker
+   - Ingress controller
+   - Cert-manager (opțional, pentru HTTPS)
+3. Conexiune la Azure pentru serviciile de Speech Translation, SQL Database și Blob Storage
+4. Kubectl configurat corect pentru accesarea clusterului
+
+### Pași de Implementare
+
+1. **Pregătirea Clusterului**
+   - Asigurați-vă că toate nodurile sunt funcționale: `kubectl get nodes`
+   - Verificați că addon-urile necesare sunt instalate și funcționale
+
+2. **Construirea Imaginilor Docker**
+   - Construiți toate imaginile Docker necesare pentru componentele personalizate
+   - Încărcați imaginile în registry-ul privat al clusterului
+
+3. **Configurarea Secretelor**
+   - Creați secretele necesare pentru credențialele Azure și alte date sensibile
+   ```bash
+   kubectl create secret generic azure-credentials \
+     --from-literal=storage-connection-string=<CONNECTION_STRING> \
+     --from-literal=sql-connection-string=<SQL_CONNECTION> \
+     --from-literal=speech-key=<SPEECH_KEY> \
+     --from-literal=speech-region=<SPEECH_REGION>
+   ```
+
+4. **Implementarea Aplicației**
+   - Aplicați toți manifesturile Kubernetes într-o singură comandă:
+   ```bash
+   kubectl apply -f kubernetes/deploy-all.yaml
+   ```
+
+5. **Verificarea Implementării**
+   - Verificați că toate pod-urile rulează corect: `kubectl get pods`
+   - Verificați serviciile: `kubectl get services`
+   - Accesați aplicația folosind IP-ul extern sau numele DNS configurat
+
+## Observații Importante
+
+1. Toate imaginile Docker personalizate folosesc tehnici de construcție multi-stage pentru a reduce dimensiunea finală.
+2. Comunicarea între componente este securizată prin politici de rețea Kubernetes.
+3. Persistența datelor este asigurată prin volume persistente pentru bazele de date locale.
+4. Pentru serviciile Azure, sunt utilizate credențiale securizate stocate în Kubernetes Secrets.
+
+## Cerințe pentru Prezentare
+
+În ziua prezentării, asigurați-vă că:
+1. Mașinile Kubernetes (două) sunt pregătite și pornite
+2. Addon-urile (registry, etc.) sunt funcționale
+3. Containerele personalizate sunt deja construite și disponibile în registry
+4. Toată arhitectura poate fi pornită cu o singură comandă `kubectl apply`
+5. Nu sunt necesare modificări manuale după aplicarea configurației
+
+## Resurse Adiționale
+
+- [Documentație Kubernetes](https://kubernetes.io/docs/)
+- [Documentație Statamic CMS](https://statamic.dev/)
+- [Documentație Angular](https://angular.io/docs)
+- [Documentație Node.js WebSocket](https://github.com/websockets/ws)
+- [Documentație Azure Speech Translation](https://docs.microsoft.com/en-us/azure/cognitive-services/speech-service/speech-translation)
