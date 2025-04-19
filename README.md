@@ -1,3 +1,5 @@
+https://camo.githubusercontent.com/9fb8c7cad55c2ac1f2f94927172a2fd43f1ca48993952ac62f87684664309ee1/68747470733a2f2f74656368737461636b2d67656e657261746f722e76657263656c2e6170702f6b756265726e657465732d69636f6e2e737667
+
 Obiectivul temei este de a crea un website ce contine o aplicatie de chat si o aplicatie de IA. Tema va fi implementată folosind mai multe deployment-uri gestionate de un cluster de Kubernetes. Arhitectura acestei aplicatii va cuprinde mai multe elemente:
 
    Site-ul web efectiv va fi ținut pe un content management system (CMS).
