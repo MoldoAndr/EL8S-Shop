@@ -12,11 +12,18 @@ spec:
   template:
     metadata:
       labels:
-        app: ai-frontend
+        app: ai-frontend    
     spec:
       containers:
-        - name: ai-frontend
-          image: kind-registry:5000/ai-frontend:latest
-          imagePullPolicy: Always
-          ports:
-            - containerPort: 91
+      - name: ai-frontend
+        image: kind-registry:5000/ai-frontend:latest
+        ports:
+        - containerPort: 91
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: nginx.conf
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: ai-frontend-nginx-config

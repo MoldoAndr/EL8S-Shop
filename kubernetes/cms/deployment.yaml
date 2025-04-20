@@ -5,7 +5,7 @@ metadata:
   labels:
     app: cms
 spec:
-  replicas: 4  # Running 4 replicas as required
+  replicas: 4
   selector:
     matchLabels:
       app: cms
@@ -14,27 +14,17 @@ spec:
       labels:
         app: cms
     spec:
-      initContainers:
-      - name: copy-content
-        image: busybox
-        command: ['sh', '-c', 'cp -R /source/* /dest/ || true']
-        volumeMounts:
-        - name: host-content
-          mountPath: /source
-        - name: cms-content
-          mountPath: /dest
       containers:
       - name: cms
         image: kind-registry:5000/cms:latest
         ports:
         - containerPort: 80
-        volumeMounts:
-        - mountPath: /var/www/html
-          name: cms-content
-      volumes:
-      - name: host-content
-        hostPath:
-          path: /mnt/myproject
-          type: Directory
-      - name: cms-content
-        emptyDir: {}
+        env:
+        - name: APP_URL
+          value: "http://localhost"
+        - name: PHP_MEMORY_LIMIT
+          value: "512M"
+        - name: PHP_UPLOAD_MAX_FILESIZE
+          value: "10M"
+        - name: PHP_POST_MAX_SIZE
+          value: "10M"

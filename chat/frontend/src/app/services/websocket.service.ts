@@ -19,9 +19,10 @@ export class WebsocketService {
   private maxRetries = 3;
 
   connect(username: string): void {
-    // Using the Apache proxy path for WebSocket
-    const wsUrl = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
-    
+   	const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+	const wsUrl = `${wsProtocol}://${window.location.host}/ws`;
+	console.log(`Connecting to WebSocket at ${wsUrl}`);
+
     console.log('Attempting to connect to WebSocket at:', wsUrl);
     
     this.websocket = new WebSocket(wsUrl);

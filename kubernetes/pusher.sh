@@ -17,6 +17,10 @@ echo "🔨 Building and pushing Chat frontend..."
 docker build -t localhost:5000/chat-frontend:latest ../chat/frontend
 docker push localhost:5000/chat-frontend:latest
 
+echo "🔨 Building and pushing Chat Apache..."
+docker build -t localhost:5000/chat-apache:latest ../chat/apache
+docker push localhost:5000/chat-apache:latest
+
 echo "🔨 Building and pushing CMS..."
 docker build -t localhost:5000/cms:latest ../cms
 docker push localhost:5000/cms:latest

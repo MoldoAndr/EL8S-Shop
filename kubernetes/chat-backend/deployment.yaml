@@ -5,7 +5,7 @@ metadata:
   labels:
     app: chat-backend
 spec:
-  replicas: 4
+  replicas: 4  
   selector:
     matchLabels:
       app: chat-backend
@@ -15,36 +15,14 @@ spec:
         app: chat-backend
     spec:
       containers:
-        - name: chat-backend
-          image: kind-registry:5000/chat-backend:latest
-          imagePullPolicy: Always
-          ports:
-            - containerPort: 88
-          env:
-            - name: MONGO_URI
-              valueFrom:
-                configMapKeyRef:
-                  name: chat-config
-                  key: MONGO_URI
-            - name: PORT_WS
-              valueFrom:
-                configMapKeyRef:
-                  name: chat-config
-                  key: PORT_WS
-            - name: NODE_ENV
-              valueFrom:
-                configMapKeyRef:
-                  name: chat-config
-                  key: NODE_ENV
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: chat-backend
-spec:
-  selector:
-    app: chat-backend
-  ports:
-    - port: 88
-      targetPort: 88
-  type: ClusterIP
+      - name: chat-backend
+        image: kind-registry:5000/chat-backend:latest
+        ports:
+        - containerPort: 88
+        env:
+        - name: PORT_WS
+          value: "88"
+        - name: MONGO_URI
+          value: "mongodb://mongodb:27017/chatapp"
+        - name: NODE_ENV
+          value: "production"

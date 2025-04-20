@@ -7,11 +7,15 @@ resources:
   - common/config.yaml
   - common/ingress.yaml
   - chat-backend/deployment.yaml
+  - chat-backend/service.yaml
   - chat-frontend/deployment.yaml
   - chat-frontend/nginx-config.yaml
-  - chat-frontend/service.yaml  # Add this line
+  - chat-frontend/service.yaml  
   - ai-backend/deployment.yaml
   - ai-frontend/deployment.yaml
-  - ai-frontend/service.yaml   # Add this line
+  - ai-frontend/service.yaml
   - cms/deployment.yaml
   - cms/service.yaml
+  - apache/deployment.yaml
+  - apache/service.yaml
+  - common/network-policies.yaml
