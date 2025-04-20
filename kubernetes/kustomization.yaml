@@ -19,3 +19,7 @@ resources:
   - apache/deployment.yaml
   - apache/service.yaml
   - common/network-policies.yaml
+  - mongo/mongo-pv.yaml
+  - mongo/mongo-service.yaml
+  - mongo/mongo-pv2.yaml
+  - mongo/mongo-pvc.yaml

@@ -1,4 +1,3 @@
-# kind-config.yaml
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 containerdConfigPatches:
@@ -10,17 +9,21 @@ nodes:
     extraMounts:
       - hostPath: /home/andrei/STD_TEMA_2/cms/myproject
         containerPath: /mnt/myproject
+      - hostPath: /tmp/mongo-data
+        containerPath: /tmp/mongodb-data
+      - hostPath: /home/andrei/STD_TEMA_2/mongo-db-data
+        containerPath: /data/mongo
     extraPortMappings:
-    - containerPort: 30080
-      hostPort: 30080
-      protocol: TCP
-      listenAddress: "0.0.0.0"
-    - containerPort: 30090
-      hostPort: 30090
-      protocol: TCP
-    - containerPort: 30091
-      hostPort: 30091
-      protocol: TCP
-    - containerPort: 80
-      hostPort: 80
-      protocol: TCP
+      - containerPort: 30080
+        hostPort: 30080
+        protocol: TCP
+        listenAddress: "0.0.0.0"
+      - containerPort: 30090
+        hostPort: 30090
+        protocol: TCP
+      - containerPort: 30091
+        hostPort: 30091
+        protocol: TCP
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP

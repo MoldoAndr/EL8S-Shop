@@ -50,26 +50,26 @@ export class ChatComponent implements OnInit, OnDestroy {
       try {
         this.websocketService.connect(this.username);
         this.messageSubscription = this.websocketService.getMessages()
-          .subscribe({
-            next: (message: Message) => {
-              console.log('Message received in component:', message);
-              
-              if (message.type === 'connect_success') {
-                this.connectionStatus = 'connected';
-              } else if (message.type === 'error') {
-                this.errorMessage = message.message || 'Unknown error';
-                this.connectionStatus = 'error';
-              } else if (message.type === 'chat' || !message.type) {
-                this.messages.push(message);
-                setTimeout(() => this.scrollToBottom(), 50);
-              }
-            },
-            error: (err) => {
-              console.error('Message subscription error:', err);
+        .subscribe({
+          next: (message: Message) => {
+            console.log('Message received in component:', message);
+            
+            if (message.type === 'connect_success') {
+              this.connectionStatus = 'connected';
+            } else if (message.type === 'error') {
+              this.errorMessage = message.message || 'Unknown error';
               this.connectionStatus = 'error';
-              this.errorMessage = 'Failed to receive messages';
+            } else if (message.type === 'chat' || message.type === 'message') {
+              this.messages.push(message);
+              setTimeout(() => this.scrollToBottom(), 50);
             }
-          });
+          },
+          error: (err) => {
+            console.error('Message subscription error:', err);
+            this.connectionStatus = 'error';
+            this.errorMessage = 'Failed to receive messages';
+          }
+        });
         this.historySubscription = this.websocketService.getHistory()
           .subscribe({
             next: (history: Message[]) => {

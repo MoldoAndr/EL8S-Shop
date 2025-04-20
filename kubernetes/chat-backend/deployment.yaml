@@ -14,6 +14,10 @@ spec:
       labels:
         app: chat-backend
     spec:
+      initContainers:
+      - name: wait-for-mongodb
+        image: busybox
+        command: ['sh', '-c', 'sleep 30']
       containers:
       - name: chat-backend
         image: kind-registry:5000/chat-backend:latest

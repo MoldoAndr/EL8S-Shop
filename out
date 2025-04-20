@@ -1,0 +1,1011 @@
+./kind-config.yaml: # kind-config.yaml
+./kind-config.yaml: kind: Cluster
+./kind-config.yaml: apiVersion: kind.x-k8s.io/v1alpha4
+./kind-config.yaml: containerdConfigPatches:
+./kind-config.yaml:   - |-
+./kind-config.yaml:     [plugins."io.containerd.grpc.v1.cri".registry.mirrors."kind-registry:5000"]
+./kind-config.yaml:       endpoint = ["http://registry:5000"]
+./kind-config.yaml: nodes:
+./kind-config.yaml:   - role: control-plane
+./kind-config.yaml:     extraMounts:
+./kind-config.yaml:       - hostPath: /home/andrei/STD_TEMA_2/cms/myproject
+./kind-config.yaml:         containerPath: /mnt/myproject
+./kind-config.yaml:       - hostPath: /tmp/mongo-data
+./kind-config.yaml:         containerPath: /tmp/mongodb-data
+./kind-config.yaml:     extraPortMappings:
+./kind-config.yaml:     - containerPort: 30080
+./kind-config.yaml:       hostPort: 30080
+./kind-config.yaml:       protocol: TCP
+./kind-config.yaml:       listenAddress: "0.0.0.0"
+./kind-config.yaml:     - containerPort: 30090
+./kind-config.yaml:       hostPort: 30090
+./kind-config.yaml:       protocol: TCP
+./kind-config.yaml:     - containerPort: 30091
+./kind-config.yaml:       hostPort: 30091
+./kind-config.yaml:       protocol: TCP
+./kind-config.yaml:     - containerPort: 80
+./kind-config.yaml:       hostPort: 80
+./kind-config.yaml:       protocol: TCP
+./setup.sh: #!/bin/bash
+./setup.sh: set -e  
+./setup.sh: GREEN='\033[0;32m'
+./setup.sh: YELLOW='\033[1;33m'
+./setup.sh: RED='\033[0;31m'
+./setup.sh: BLUE='\033[0;34m'
+./setup.sh: NC='\033[0m'
+./setup.sh: print_status() {
+./setup.sh:   echo -e "${BLUE}[$(date +%T)]${NC} $1"
+./setup.sh: print_success() {
+./setup.sh:   echo -e "${GREEN}[$(date +%T)] 
+./setup.sh:  $1${NC}"
+./setup.sh: print_warning() {
+./setup.sh:   echo -e "${YELLOW}[$(date +%T)] 
+./setup.sh:  $1${NC}"
+./setup.sh: print_error() {
+./setup.sh:   echo -e "${RED}[$(date +%T)] 
+./setup.sh:  $1${NC}"
+./setup.sh: command_exists() {
+./setup.sh:   command -v "$1" >/dev/null 2>&1
+./setup.sh: check_prerequisites() {
+./setup.sh:   print_status "Checking prerequisites..."
+./setup.sh:   if ! command_exists kind; then
+./setup.sh:     print_error "kind is not installed. Please install it first."
+./setup.sh:     exit 1
+./setup.sh:   fi
+./setup.sh:   if ! command_exists kubectl; then
+./setup.sh:     print_error "kubectl is not installed. Please install it first."
+./setup.sh:     exit 1
+./setup.sh:   fi
+./setup.sh:   if ! command_exists docker; then
+./setup.sh:     print_error "docker is not installed. Please install it first."
+./setup.sh:     exit 1
+./setup.sh:   fi
+./setup.sh:   print_success "All prerequisites are installed."
+./setup.sh: delete_cluster() {
+./setup.sh:   print_status "Deleting existing cluster..."
+./setup.sh:   if kind get clusters | grep -q kind; then
+./setup.sh:     kind delete cluster
+./setup.sh:     print_success "Existing cluster deleted."
+./setup.sh:   else
+./setup.sh:     print_warning "No existing cluster found."
+./setup.sh:   fi
+./setup.sh: create_cluster() {
+./setup.sh:   print_status "Creating new cluster with kind..."
+./setup.sh:   kind create cluster --config kind-config.yaml
+./setup.sh:   print_success "Cluster created successfully."
+./setup.sh:   print_status "Waiting for control plane to be ready..."
+./setup.sh:   until kubectl get nodes kind-control-plane --no-headers | grep -q "Ready"; do
+./setup.sh:     printf "."
+./setup.sh:     sleep 2
+./setup.sh:   done
+./setup.sh:   echo ""
+./setup.sh:   print_success "Control plane is ready."
+./setup.sh: setup_registry() {
+./setup.sh:   print_status "Setting up container registry..."
+./setup.sh:   if docker ps -a | grep -q registry; then
+./setup.sh:     print_warning "Removing existing registry container..."
+./setup.sh:     docker stop registry 2>/dev/null || true
+./setup.sh:     docker rm registry 2>/dev/null || true
+./setup.sh:   fi
+./setup.sh:   print_status "Starting registry container..."
+./setup.sh:   docker run -d -p 5000:5000 --restart=always --name registry registry:2
+./setup.sh:   print_status "Connecting registry to kind network..."
+./setup.sh:   if kubectl config current-context | grep -q kind; then
+./setup.sh:     docker network connect kind registry 2>/dev/null || true
+./setup.sh:     print_success "Registry connected to kind network."
+./setup.sh:   else
+./setup.sh:     print_error "Not using kind context. Cannot connect registry to kind network."
+./setup.sh:     exit 1
+./setup.sh:   fi
+./setup.sh: build_push_images() {
+./setup.sh:   print_status "Building and pushing images to registry..."
+./setup.sh:   bash pusher.sh
+./setup.sh:   print_success "All images built and pushed to registry."
+./setup.sh: create_configmaps() {
+./setup.sh:   print_status "Creating ConfigMaps for Nginx configurations..."
+./setup.sh:   if [ -f "ai-frontend/nginx.conf" ]; then
+./setup.sh:     kubectl create configmap ai-frontend-nginx-config --from-file=nginx.conf=ai-frontend/nginx.conf --dry-run=client -o yaml | kubectl apply -f -
+./setup.sh:     print_success "AI frontend nginx ConfigMap created."
+./setup.sh:   else
+./setup.sh:     print_warning "ai-frontend/nginx.conf not found, creating default config..."
+./setup.sh:     
+./setup.sh:     mkdir -p ai-frontend
+./setup.sh:     cat > ai-frontend/nginx.conf << 'EOF'
+./setup.sh: server {
+./setup.sh:     listen 91;
+./setup.sh:     server_name localhost;
+./setup.sh:     
+./setup.sh:     # Check referer header
+./setup.sh:     if ($http_referer !~* "^http://localhost:30080") {
+./setup.sh:         return 403 "Direct access not allowed";
+./setup.sh:     }
+./setup.sh:     
+./setup.sh:     root /usr/share/nginx/html;
+./setup.sh:     index index.html index.htm;
+./setup.sh:     
+./setup.sh:     location / {
+./setup.sh:         try_files $uri $uri/ /index.html;
+./setup.sh:     }
+./setup.sh:     
+./setup.sh:     # Proxy API requests to backend
+./setup.sh:     location /api {
+./setup.sh:         proxy_pass http://ai-backend:89;
+./setup.sh:         proxy_http_version 1.1;
+./setup.sh:         proxy_set_header Upgrade $http_upgrade;
+./setup.sh:         proxy_set_header Connection 'upgrade';
+./setup.sh:         proxy_set_header Host $host;
+./setup.sh:         proxy_set_header X-Real-IP $remote_addr;
+./setup.sh:         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+./setup.sh:         proxy_cache_bypass $http_upgrade;
+./setup.sh:     }
+./setup.sh:     kubectl create configmap ai-frontend-nginx-config --from-file=nginx.conf=ai-frontend/nginx.conf --dry-run=client -o yaml | kubectl apply -f -
+./setup.sh:     print_success "Default AI frontend nginx ConfigMap created."
+./setup.sh:   fi
+./setup.sh:   if [ -f "chat-frontend/nginx.conf" ]; then
+./setup.sh:     kubectl create configmap chat-frontend-nginx-config --from-file=nginx.conf=chat-frontend/nginx.conf --dry-run=client -o yaml | kubectl apply -f -
+./setup.sh:     print_success "Chat frontend nginx ConfigMap created."
+./setup.sh:   else
+./setup.sh:     print_warning "chat-frontend/nginx.conf not found, creating default config..."
+./setup.sh:     
+./setup.sh:     mkdir -p chat-frontend
+./setup.sh:     cat > chat-frontend/nginx.conf << 'EOF'
+./setup.sh: server {
+./setup.sh:     listen 90;
+./setup.sh:     server_name localhost;
+./setup.sh:     
+./setup.sh:     # Check referer header
+./setup.sh:     if ($http_referer !~* "^http://localhost:30080") {
+./setup.sh:         return 403 "Direct access not allowed";
+./setup.sh:     }
+./setup.sh:     
+./setup.sh:     root /usr/share/nginx/html;
+./setup.sh:     index index.html index.htm;
+./setup.sh:     
+./setup.sh:     # For Angular routing
+./setup.sh:     location / {
+./setup.sh:         try_files $uri $uri/ /index.html;
+./setup.sh:     }
+./setup.sh:     
+./setup.sh:     # Proxy WebSocket connections to backend
+./setup.sh:     location /ws {
+./setup.sh:         proxy_pass http://chat-backend:88;
+./setup.sh:         proxy_http_version 1.1;
+./setup.sh:         proxy_set_header Upgrade $http_upgrade;
+./setup.sh:         proxy_set_header Connection "upgrade";
+./setup.sh:         proxy_set_header Host $host;
+./setup.sh:         proxy_set_header X-Real-IP $remote_addr;
+./setup.sh:         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+./setup.sh:         proxy_read_timeout 86400;
+./setup.sh:     }
+./setup.sh:     kubectl create configmap chat-frontend-nginx-config --from-file=nginx.conf=chat-frontend/nginx.conf --dry-run=client -o yaml | kubectl apply -f -
+./setup.sh:     print_success "Default Chat frontend nginx ConfigMap created."
+./setup.sh:   fi
+./setup.sh: deploy_application() {
+./setup.sh:   print_status "Deploying the application..."
+./setup.sh:   kubectl apply -k .
+./setup.sh:   print_success "Application deployed successfully."
+./setup.sh: wait_for_pods() {
+./setup.sh:   print_status "Waiting for all pods to become ready..."
+./setup.sh:   local timeout=300
+./setup.sh:   local start_time=$(date +%s)
+./setup.sh:   while true; do
+./setup.sh:     local current_time=$(date +%s)
+./setup.sh:     local elapsed=$((current_time - start_time))
+./setup.sh:     
+./setup.sh:     if [ $elapsed -gt $timeout ]; then
+./setup.sh:       print_error "Timeout waiting for pods to become ready."
+./setup.sh:       kubectl get pods
+./setup.sh:       return 1
+./setup.sh:     fi
+./setup.sh:     
+./setup.sh:     local not_ready=$(kubectl get pods --no-headers | grep -v "Running\|Completed" | wc -l)
+./setup.sh:     if [ $not_ready -eq 0 ]; then
+./setup.sh:       local total_pods=$(kubectl get pods --no-headers | wc -l)
+./setup.sh:       print_success "All $total_pods pods are ready."
+./setup.sh:       return 0
+./setup.sh:     fi
+./setup.sh:     
+./setup.sh:     if [ $((elapsed % 10)) -eq 0 ]; then
+./setup.sh:       kubectl get pods
+./setup.sh:     fi
+./setup.sh:     
+./setup.sh:     sleep 5
+./setup.sh:   done
+./setup.sh: show_access_info() {
+./setup.sh:   print_status "Deployment complete! Access your application at:"
+./setup.sh:   local node_port_cms=$(kubectl get service cms -o jsonpath='{.spec.ports[0].nodePort}')
+./setup.sh:   local node_port_chat=$(kubectl get service chat-frontend -o jsonpath='{.spec.ports[0].nodePort}')
+./setup.sh:   local node_port_ai=$(kubectl get service ai-frontend -o jsonpath='{.spec.ports[0].nodePort}')
+./setup.sh:   echo -e "${GREEN}CMS:${NC} http://localhost:$node_port_cms"
+./setup.sh:   echo -e "${GREEN}Chat:${NC} http://localhost:$node_port_chat (embedded in CMS)"
+./setup.sh:   echo -e "${GREEN}AI:${NC} http://localhost:$node_port_ai (embedded in CMS)"
+./setup.sh:   echo ""
+./setup.sh:   echo -e "${YELLOW}Note:${NC} Direct access to Chat and AI services is restricted via referer checking."
+./setup.sh:   echo -e "Access these services through the CMS interface."
+./setup.sh: main() {
+./setup.sh:   check_prerequisites
+./setup.sh:   delete_cluster
+./setup.sh:   create_cluster
+./setup.sh:   setup_registry
+./setup.sh:   build_push_images
+./setup.sh:   create_configmaps
+./setup.sh:   deploy_application
+./setup.sh:   wait_for_pods
+./setup.sh:   show_access_info
+./setup.sh: main
+./common/ingress.yaml: apiVersion: networking.k8s.io/v1
+./common/ingress.yaml: kind: Ingress
+./common/ingress.yaml: metadata:
+./common/ingress.yaml:   name: app-ingress
+./common/ingress.yaml:   annotations:
+./common/ingress.yaml:     nginx.ingress.kubernetes.io/rewrite-target: /
+./common/ingress.yaml:     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+./common/ingress.yaml:     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+./common/ingress.yaml:     nginx.ingress.kubernetes.io/proxy-buffer-size: "8k"
+./common/ingress.yaml:     nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+./common/ingress.yaml:     nginx.ingress.kubernetes.io/websocket-services: "chat-backend"
+./common/ingress.yaml: spec:
+./common/ingress.yaml:   ingressClassName: nginx
+./common/ingress.yaml:   rules:
+./common/ingress.yaml:     - host: localhost
+./common/ingress.yaml:       http:
+./common/ingress.yaml:         paths:
+./common/ingress.yaml:           - path: /
+./common/ingress.yaml:             pathType: Prefix
+./common/ingress.yaml:             backend:
+./common/ingress.yaml:               service:
+./common/ingress.yaml:                 name: cms
+./common/ingress.yaml:                 port:
+./common/ingress.yaml:                   number: 80
+./common/ingress.yaml:           - path: /chat
+./common/ingress.yaml:             pathType: Prefix
+./common/ingress.yaml:             backend:
+./common/ingress.yaml:               service:
+./common/ingress.yaml:                 name: chat-frontend
+./common/ingress.yaml:                 port:
+./common/ingress.yaml:                   number: 90
+./common/ingress.yaml:           - path: /ai
+./common/ingress.yaml:             pathType: Prefix
+./common/ingress.yaml:             backend:
+./common/ingress.yaml:               service:
+./common/ingress.yaml:                 name: ai-frontend
+./common/ingress.yaml:                 port:
+./common/ingress.yaml:                   number: 91
+./common/ingress.yaml:           - path: /ws
+./common/ingress.yaml:             pathType: Prefix
+./common/ingress.yaml:             backend:
+./common/ingress.yaml:               service:
+./common/ingress.yaml:                 name: chat-backend
+./common/ingress.yaml:                 port:
+./common/ingress.yaml:                   number: 88
+./common/ingress.yaml:           - path: /api
+./common/ingress.yaml:             pathType: Prefix
+./common/ingress.yaml:             backend:
+./common/ingress.yaml:               service:
+./common/ingress.yaml:                 name: ai-backend
+./common/ingress.yaml:                 port:
+./common/ingress.yaml:                   number: 89
+./common/config.yaml: apiVersion: v1
+./common/config.yaml: kind: ConfigMap
+./common/config.yaml: metadata:
+./common/config.yaml:   name: azure-config
+./common/config.yaml: data:
+./common/config.yaml:   AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=https;AccountName=youraccount;AccountKey=yourkey;EndpointSuffix=core.windows.net"
+./common/config.yaml:   AZURE_SPEECH_KEY: "your-speech-key"
+./common/config.yaml:   AZURE_SPEECH_REGION: "westeurope"
+./common/config.yaml:   DB_USER: "sqluser"
+./common/config.yaml:   DB_PASSWORD: "sqlpassword"
+./common/config.yaml:   DB_SERVER: "your-db-server.database.windows.net"
+./common/config.yaml:   DB_NAME: "yourdatabase"
+./common/config.yaml: apiVersion: v1
+./common/config.yaml: kind: ConfigMap
+./common/config.yaml: metadata:
+./common/config.yaml:   name: chat-config
+./common/config.yaml: data:
+./common/config.yaml:   MONGO_URI: "mongodb://mongodb:27017/chatapp"
+./common/config.yaml:   PORT_WS: "88"
+./common/config.yaml:   NODE_ENV: "production"
+./common/network-policies.yaml: apiVersion: networking.k8s.io/v1
+./common/network-policies.yaml: kind: NetworkPolicy
+./common/network-policies.yaml: metadata:
+./common/network-policies.yaml:   name: restrict-chat-frontend
+./common/network-policies.yaml: spec:
+./common/network-policies.yaml:   podSelector:
+./common/network-policies.yaml:     matchLabels:
+./common/network-policies.yaml:       app: chat-frontend
+./common/network-policies.yaml:   policyTypes:
+./common/network-policies.yaml:   - Ingress
+./common/network-policies.yaml:   ingress:
+./common/network-policies.yaml:   - from:
+./common/network-policies.yaml:     - podSelector:
+./common/network-policies.yaml:         matchLabels:
+./common/network-policies.yaml:           app: cms
+./common/network-policies.yaml:     ports:
+./common/network-policies.yaml:     - protocol: TCP
+./common/network-policies.yaml:       port: 90
+./common/network-policies.yaml: apiVersion: networking.k8s.io/v1
+./common/network-policies.yaml: kind: NetworkPolicy
+./common/network-policies.yaml: metadata:
+./common/network-policies.yaml:   name: restrict-ai-frontend
+./common/network-policies.yaml: spec:
+./common/network-policies.yaml:   podSelector:
+./common/network-policies.yaml:     matchLabels:
+./common/network-policies.yaml:       app: ai-frontend
+./common/network-policies.yaml:   policyTypes:
+./common/network-policies.yaml:   - Ingress
+./common/network-policies.yaml:   ingress:
+./common/network-policies.yaml:   - from:
+./common/network-policies.yaml:     - podSelector:
+./common/network-policies.yaml:         matchLabels:
+./common/network-policies.yaml:           app: cms
+./common/network-policies.yaml:     ports:
+./common/network-policies.yaml:     - protocol: TCP
+./common/network-policies.yaml:       port: 91
+./apache/service.yaml: apiVersion: v1
+./apache/service.yaml: kind: Service
+./apache/service.yaml: metadata:
+./apache/service.yaml:   name: chat-apache
+./apache/service.yaml: spec:
+./apache/service.yaml:   selector:
+./apache/service.yaml:     app: chat-apache
+./apache/service.yaml:   ports:
+./apache/service.yaml:   - port: 80
+./apache/service.yaml:     targetPort: 80
+./apache/service.yaml:   type: ClusterIP
+./apache/deployment.yaml: apiVersion: apps/v1
+./apache/deployment.yaml: kind: Deployment
+./apache/deployment.yaml: metadata:
+./apache/deployment.yaml:   name: chat-apache
+./apache/deployment.yaml:   labels:
+./apache/deployment.yaml:     app: chat-apache
+./apache/deployment.yaml: spec:
+./apache/deployment.yaml:   replicas: 1
+./apache/deployment.yaml:   selector:
+./apache/deployment.yaml:     matchLabels:
+./apache/deployment.yaml:       app: chat-apache
+./apache/deployment.yaml:   template:
+./apache/deployment.yaml:     metadata:
+./apache/deployment.yaml:       labels:
+./apache/deployment.yaml:         app: chat-apache
+./apache/deployment.yaml:     spec:
+./apache/deployment.yaml:       containers:
+./apache/deployment.yaml:       - name: chat-apache
+./apache/deployment.yaml:         image: kind-registry:5000/chat-apache:latest
+./apache/deployment.yaml:         ports:
+./apache/deployment.yaml:         - containerPort: 80
+./ai-backend/Dockerfile: FROM node:18-alpine AS builder
+./ai-backend/Dockerfile: WORKDIR /app
+./ai-backend/Dockerfile: COPY ai/backend/package*.json ./
+./ai-backend/Dockerfile: RUN npm install --production
+./ai-backend/Dockerfile: FROM node:18-alpine
+./ai-backend/Dockerfile: WORKDIR /app
+./ai-backend/Dockerfile: COPY --from=builder /app/node_modules ./node_modules
+./ai-backend/Dockerfile: COPY ai/backend/index.js ./index.js
+./ai-backend/Dockerfile: RUN mkdir -p uploads
+./ai-backend/Dockerfile: EXPOSE 89
+./ai-backend/Dockerfile: CMD ["node", "index.js"]
+./ai-backend/deployment.yaml: apiVersion: v1
+./ai-backend/deployment.yaml: kind: PersistentVolumeClaim
+./ai-backend/deployment.yaml: metadata:
+./ai-backend/deployment.yaml:   name: ai-uploads-pvc
+./ai-backend/deployment.yaml: spec:
+./ai-backend/deployment.yaml:   accessModes:
+./ai-backend/deployment.yaml:     - ReadWriteOnce
+./ai-backend/deployment.yaml:   resources:
+./ai-backend/deployment.yaml:     requests:
+./ai-backend/deployment.yaml:       storage: 5Gi
+./ai-backend/deployment.yaml: apiVersion: apps/v1
+./ai-backend/deployment.yaml: kind: Deployment
+./ai-backend/deployment.yaml: metadata:
+./ai-backend/deployment.yaml:   name: ai-backend
+./ai-backend/deployment.yaml:   labels:
+./ai-backend/deployment.yaml:     app: ai-backend
+./ai-backend/deployment.yaml: spec:
+./ai-backend/deployment.yaml:   replicas: 1
+./ai-backend/deployment.yaml:   selector:
+./ai-backend/deployment.yaml:     matchLabels:
+./ai-backend/deployment.yaml:       app: ai-backend
+./ai-backend/deployment.yaml:   template:
+./ai-backend/deployment.yaml:     metadata:
+./ai-backend/deployment.yaml:       labels:
+./ai-backend/deployment.yaml:         app: ai-backend
+./ai-backend/deployment.yaml:     spec:
+./ai-backend/deployment.yaml:       containers:
+./ai-backend/deployment.yaml:         - name: ai-backend
+./ai-backend/deployment.yaml:           image: kind-registry:5000/ai-backend:latest
+./ai-backend/deployment.yaml:           imagePullPolicy: Always
+./ai-backend/deployment.yaml:           ports:
+./ai-backend/deployment.yaml:             - containerPort: 89
+./ai-backend/deployment.yaml:           env:
+./ai-backend/deployment.yaml:             - name: PORT
+./ai-backend/deployment.yaml:               value: "89"
+./ai-backend/deployment.yaml:             - name: AZURE_STORAGE_CONNECTION_STRING
+./ai-backend/deployment.yaml:               valueFrom:
+./ai-backend/deployment.yaml:                 configMapKeyRef:
+./ai-backend/deployment.yaml:                   name: azure-config
+./ai-backend/deployment.yaml:                   key: AZURE_STORAGE_CONNECTION_STRING
+./ai-backend/deployment.yaml:             - name: AZURE_SPEECH_KEY
+./ai-backend/deployment.yaml:               valueFrom:
+./ai-backend/deployment.yaml:                 configMapKeyRef:
+./ai-backend/deployment.yaml:                   name: azure-config
+./ai-backend/deployment.yaml:                   key: AZURE_SPEECH_KEY
+./ai-backend/deployment.yaml:             - name: AZURE_SPEECH_REGION
+./ai-backend/deployment.yaml:               valueFrom:
+./ai-backend/deployment.yaml:                 configMapKeyRef:
+./ai-backend/deployment.yaml:                   name: azure-config
+./ai-backend/deployment.yaml:                   key: AZURE_SPEECH_REGION
+./ai-backend/deployment.yaml:             - name: DB_USER
+./ai-backend/deployment.yaml:               valueFrom:
+./ai-backend/deployment.yaml:                 configMapKeyRef:
+./ai-backend/deployment.yaml:                   name: azure-config
+./ai-backend/deployment.yaml:                   key: DB_USER
+./ai-backend/deployment.yaml:             - name: DB_PASSWORD
+./ai-backend/deployment.yaml:               valueFrom:
+./ai-backend/deployment.yaml:                 configMapKeyRef:
+./ai-backend/deployment.yaml:                   name: azure-config
+./ai-backend/deployment.yaml:                   key: DB_PASSWORD
+./ai-backend/deployment.yaml:             - name: DB_SERVER
+./ai-backend/deployment.yaml:               valueFrom:
+./ai-backend/deployment.yaml:                 configMapKeyRef:
+./ai-backend/deployment.yaml:                   name: azure-config
+./ai-backend/deployment.yaml:                   key: DB_SERVER
+./ai-backend/deployment.yaml:             - name: DB_NAME
+./ai-backend/deployment.yaml:               valueFrom:
+./ai-backend/deployment.yaml:                 configMapKeyRef:
+./ai-backend/deployment.yaml:                   name: azure-config
+./ai-backend/deployment.yaml:                   key: DB_NAME
+./ai-backend/deployment.yaml:           volumeMounts:
+./ai-backend/deployment.yaml:             - name: uploads
+./ai-backend/deployment.yaml:               mountPath: /app/uploads
+./ai-backend/deployment.yaml:       volumes:
+./ai-backend/deployment.yaml:         - name: uploads
+./ai-backend/deployment.yaml:           persistentVolumeClaim:
+./ai-backend/deployment.yaml:             claimName: ai-uploads-pvc
+./ai-backend/deployment.yaml: apiVersion: v1
+./ai-backend/deployment.yaml: kind: Service
+./ai-backend/deployment.yaml: metadata:
+./ai-backend/deployment.yaml:   name: ai-backend
+./ai-backend/deployment.yaml: spec:
+./ai-backend/deployment.yaml:   selector:
+./ai-backend/deployment.yaml:     app: ai-backend
+./ai-backend/deployment.yaml:   ports:
+./ai-backend/deployment.yaml:     - port: 89
+./ai-backend/deployment.yaml:       targetPort: 89
+./ai-backend/deployment.yaml:   type: ClusterIP
+./pusher.sh: #!/bin/bash
+./pusher.sh: set -e
+./pusher.sh: echo "
+./pusher.sh:  Building and pushing AI backend..."
+./pusher.sh: docker build -t localhost:5000/ai-backend:latest ../ai/backend
+./pusher.sh: docker push localhost:5000/ai-backend:latest
+./pusher.sh: echo "
+./pusher.sh:  Building and pushing AI frontend..."
+./pusher.sh: docker build -t localhost:5000/ai-frontend:latest ../ai/frontend
+./pusher.sh: docker push localhost:5000/ai-frontend:latest
+./pusher.sh: echo "
+./pusher.sh:  Building and pushing Chat backend..."
+./pusher.sh: docker build -t localhost:5000/chat-backend:latest ../chat/backend
+./pusher.sh: docker push localhost:5000/chat-backend:latest
+./pusher.sh: echo "
+./pusher.sh:  Building and pushing Chat frontend..."
+./pusher.sh: docker build -t localhost:5000/chat-frontend:latest ../chat/frontend
+./pusher.sh: docker push localhost:5000/chat-frontend:latest
+./pusher.sh: echo "
+./pusher.sh:  Building and pushing Chat Apache..."
+./pusher.sh: docker build -t localhost:5000/chat-apache:latest ../chat/apache
+./pusher.sh: docker push localhost:5000/chat-apache:latest
+./pusher.sh: echo "
+./pusher.sh:  Building and pushing CMS..."
+./pusher.sh: docker build -t localhost:5000/cms:latest ../cms
+./pusher.sh: docker push localhost:5000/cms:latest
+./pusher.sh: echo "
+./pusher.sh:  All images built and pushed to local registry!"
+./ai-frontend/nginx.conf: server {
+./ai-frontend/nginx.conf:     listen 91;
+./ai-frontend/nginx.conf:     server_name localhost;
+./ai-frontend/nginx.conf:     
+./ai-frontend/nginx.conf:     root /usr/share/nginx/html;
+./ai-frontend/nginx.conf:     index index.html index.htm;
+./ai-frontend/nginx.conf:     
+./ai-frontend/nginx.conf:     location / {
+./ai-frontend/nginx.conf:         try_files $uri $uri/ /index.html;
+./ai-frontend/nginx.conf:     }
+./ai-frontend/nginx.conf:     
+./ai-frontend/nginx.conf:     # Proxy API requests to backend
+./ai-frontend/nginx.conf:     location /api {
+./ai-frontend/nginx.conf:         proxy_pass http://ai-backend:89;
+./ai-frontend/nginx.conf:         proxy_http_version 1.1;
+./ai-frontend/nginx.conf:         proxy_set_header Upgrade $http_upgrade;
+./ai-frontend/nginx.conf:         proxy_set_header Connection 'upgrade';
+./ai-frontend/nginx.conf:         proxy_set_header Host $host;
+./ai-frontend/nginx.conf:         proxy_set_header X-Real-IP $remote_addr;
+./ai-frontend/nginx.conf:         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+./ai-frontend/nginx.conf:         proxy_cache_bypass $http_upgrade;
+./ai-frontend/nginx.conf:     }
+./ai-frontend/nginx.conf:     
+./ai-frontend/nginx.conf:     error_page 500 502 503 504 /50x.html;
+./ai-frontend/nginx.conf:     location = /50x.html {
+./ai-frontend/nginx.conf:         root /usr/share/nginx/html;
+./ai-frontend/nginx.conf:     }
+./ai-frontend/nginx-config.yaml: apiVersion: v1
+./ai-frontend/nginx-config.yaml: data:
+./ai-frontend/nginx-config.yaml:   nginx.conf: "server {\n    listen 91;\n    server_name localhost;\n    \n    root
+./ai-frontend/nginx-config.yaml:     /usr/share/nginx/html;\n    index index.html index.htm;\n    \n    location /
+./ai-frontend/nginx-config.yaml:     {\n        try_files $uri $uri/ /index.html;\n    }\n    \n    # Proxy API requests
+./ai-frontend/nginx-config.yaml:     to backend\n    location /api {\n        proxy_pass http://ai-backend:89;\n        proxy_http_version
+./ai-frontend/nginx-config.yaml:     1.1;\n        proxy_set_header Upgrade $http_upgrade;\n        proxy_set_header
+./ai-frontend/nginx-config.yaml:     Connection 'upgrade';\n        proxy_set_header Host $host;\n        proxy_set_header
+./ai-frontend/nginx-config.yaml:     X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n
+./ai-frontend/nginx-config.yaml:     \       proxy_cache_bypass $http_upgrade;\n    }\n    \n    error_page 500 502
+./ai-frontend/nginx-config.yaml:     503 504 /50x.html;\n    location = /50x.html {\n        root /usr/share/nginx/html;\n
+./ai-frontend/nginx-config.yaml:     \   }\n}\n"
+./ai-frontend/nginx-config.yaml: kind: ConfigMap
+./ai-frontend/nginx-config.yaml: metadata:
+./ai-frontend/nginx-config.yaml:   creationTimestamp: null
+./ai-frontend/nginx-config.yaml:   name: ai-frontend-nginx-config
+./ai-frontend/service.yaml: apiVersion: v1
+./ai-frontend/service.yaml: kind: Service
+./ai-frontend/service.yaml: metadata:
+./ai-frontend/service.yaml:   name: ai-frontend
+./ai-frontend/service.yaml:   annotations:
+./ai-frontend/service.yaml:     kubernetes.io/ingress.class: "nginx"
+./ai-frontend/service.yaml:     nginx.ingress.kubernetes.io/whitelist-source-range: "127.0.0.1" 
+./ai-frontend/service.yaml: spec:
+./ai-frontend/service.yaml:   selector:
+./ai-frontend/service.yaml:     app: ai-frontend
+./ai-frontend/service.yaml:   ports:
+./ai-frontend/service.yaml:     - port: 91
+./ai-frontend/service.yaml:       targetPort: 91
+./ai-frontend/service.yaml:       nodePort: 30091
+./ai-frontend/service.yaml:   type: NodePort
+./ai-frontend/Dockerfile: FROM node:18-alpine AS builder
+./ai-frontend/Dockerfile: WORKDIR /app
+./ai-frontend/Dockerfile: COPY ai/frontend/package*.json ./
+./ai-frontend/Dockerfile: RUN npm install
+./ai-frontend/Dockerfile: COPY ai/frontend/ ./
+./ai-frontend/Dockerfile: RUN npm run build
+./ai-frontend/Dockerfile: FROM nginx:alpine
+./ai-frontend/Dockerfile: COPY kubernetes/ai-frontend/nginx.conf /etc/nginx/conf.d/default.conf
+./ai-frontend/Dockerfile: COPY --from=builder /app/dist/frontend/browser /usr/share/nginx/html
+./ai-frontend/Dockerfile: EXPOSE 91
+./ai-frontend/Dockerfile: CMD ["nginx", "-g", "daemon off;"]
+./ai-frontend/deployment.yaml: apiVersion: apps/v1
+./ai-frontend/deployment.yaml: kind: Deployment
+./ai-frontend/deployment.yaml: metadata:
+./ai-frontend/deployment.yaml:   name: ai-frontend
+./ai-frontend/deployment.yaml:   labels:
+./ai-frontend/deployment.yaml:     app: ai-frontend
+./ai-frontend/deployment.yaml: spec:
+./ai-frontend/deployment.yaml:   replicas: 1
+./ai-frontend/deployment.yaml:   selector:
+./ai-frontend/deployment.yaml:     matchLabels:
+./ai-frontend/deployment.yaml:       app: ai-frontend
+./ai-frontend/deployment.yaml:   template:
+./ai-frontend/deployment.yaml:     metadata:
+./ai-frontend/deployment.yaml:       labels:
+./ai-frontend/deployment.yaml:         app: ai-frontend    
+./ai-frontend/deployment.yaml:     spec:
+./ai-frontend/deployment.yaml:       containers:
+./ai-frontend/deployment.yaml:       - name: ai-frontend
+./ai-frontend/deployment.yaml:         image: kind-registry:5000/ai-frontend:latest
+./ai-frontend/deployment.yaml:         ports:
+./ai-frontend/deployment.yaml:         - containerPort: 91
+./ai-frontend/deployment.yaml:         volumeMounts:
+./ai-frontend/deployment.yaml:         - name: nginx-config
+./ai-frontend/deployment.yaml:           mountPath: /etc/nginx/conf.d/default.conf
+./ai-frontend/deployment.yaml:           subPath: nginx.conf
+./ai-frontend/deployment.yaml:       volumes:
+./ai-frontend/deployment.yaml:       - name: nginx-config
+./ai-frontend/deployment.yaml:         configMap:
+./ai-frontend/deployment.yaml:           name: ai-frontend-nginx-config
+./chat-backend/service.yaml: apiVersion: v1
+./chat-backend/service.yaml: kind: Service
+./chat-backend/service.yaml: metadata:
+./chat-backend/service.yaml:   name: chat-backend
+./chat-backend/service.yaml: spec:
+./chat-backend/service.yaml:   selector:
+./chat-backend/service.yaml:     app: chat-backend
+./chat-backend/service.yaml:   ports:
+./chat-backend/service.yaml:   - port: 88
+./chat-backend/service.yaml:     targetPort: 88
+./chat-backend/service.yaml:   type: ClusterIP
+./chat-backend/Dockerfile: FROM node:18-alpine AS builder
+./chat-backend/Dockerfile: WORKDIR /app
+./chat-backend/Dockerfile: COPY chat/backend/package*.json ./
+./chat-backend/Dockerfile: RUN npm install --production
+./chat-backend/Dockerfile: FROM node:18-alpine
+./chat-backend/Dockerfile: WORKDIR /app
+./chat-backend/Dockerfile: COPY --from=builder /app/node_modules ./node_modules
+./chat-backend/Dockerfile: COPY chat/backend/index.js ./index.js
+./chat-backend/Dockerfile: EXPOSE 88
+./chat-backend/Dockerfile: CMD ["node", "index.js"]
+./chat-backend/deployment.yaml: apiVersion: apps/v1
+./chat-backend/deployment.yaml: kind: Deployment
+./chat-backend/deployment.yaml: metadata:
+./chat-backend/deployment.yaml:   name: chat-backend
+./chat-backend/deployment.yaml:   labels:
+./chat-backend/deployment.yaml:     app: chat-backend
+./chat-backend/deployment.yaml: spec:
+./chat-backend/deployment.yaml:   replicas: 4  
+./chat-backend/deployment.yaml:   selector:
+./chat-backend/deployment.yaml:     matchLabels:
+./chat-backend/deployment.yaml:       app: chat-backend
+./chat-backend/deployment.yaml:   template:
+./chat-backend/deployment.yaml:     metadata:
+./chat-backend/deployment.yaml:       labels:
+./chat-backend/deployment.yaml:         app: chat-backend
+./chat-backend/deployment.yaml:     spec:
+./chat-backend/deployment.yaml:       initContainers:
+./chat-backend/deployment.yaml:       - name: wait-for-mongodb
+./chat-backend/deployment.yaml:         image: busybox
+./chat-backend/deployment.yaml:         command: ['sh', '-c', 'sleep 30']
+./chat-backend/deployment.yaml:       containers:
+./chat-backend/deployment.yaml:       - name: chat-backend
+./chat-backend/deployment.yaml:         image: kind-registry:5000/chat-backend:latest
+./chat-backend/deployment.yaml:         ports:
+./chat-backend/deployment.yaml:         - containerPort: 88
+./chat-backend/deployment.yaml:         env:
+./chat-backend/deployment.yaml:         - name: PORT_WS
+./chat-backend/deployment.yaml:           value: "88"
+./chat-backend/deployment.yaml:         - name: MONGO_URI
+./chat-backend/deployment.yaml:           value: "mongodb://mongodb:27017/chatapp"
+./chat-backend/deployment.yaml:         - name: NODE_ENV
+./chat-backend/deployment.yaml:           value: "production"
+./mongo/mongo-pv.yaml: apiVersion: v1
+./mongo/mongo-pv.yaml: kind: PersistentVolume
+./mongo/mongo-pv.yaml: metadata:
+./mongo/mongo-pv.yaml:   name: mongo-pv
+./mongo/mongo-pv.yaml: spec:
+./mongo/mongo-pv.yaml:   capacity:
+./mongo/mongo-pv.yaml:     storage: 5Gi
+./mongo/mongo-pv.yaml:   accessModes:
+./mongo/mongo-pv.yaml:     - ReadWriteOnce
+./mongo/mongo-pv.yaml:   persistentVolumeReclaimPolicy: Retain
+./mongo/mongo-pv.yaml:   storageClassName: standard
+./mongo/mongo-pv.yaml:   hostPath:
+./mongo/mongo-pv.yaml:     path: /tmp/mongo-data
+./mongo/mongo-pv.yaml:     type: DirectoryOrCreate
+./mongo/mongo-service.yaml: apiVersion: v1
+./mongo/mongo-service.yaml: kind: Service
+./mongo/mongo-service.yaml: metadata:
+./mongo/mongo-service.yaml:   name: mongodb
+./mongo/mongo-service.yaml: spec:
+./mongo/mongo-service.yaml:   selector:
+./mongo/mongo-service.yaml:     app: mongodb
+./mongo/mongo-service.yaml:   ports:
+./mongo/mongo-service.yaml:     - port: 27017
+./mongo/mongo-service.yaml:       targetPort: 27017
+./mongo/mongo-service.yaml:   type: ClusterIP
+./mongo/mongo-pvc.yaml: apiVersion: v1
+./mongo/mongo-pvc.yaml: kind: PersistentVolumeClaim
+./mongo/mongo-pvc.yaml: metadata:
+./mongo/mongo-pvc.yaml:   name: mongo-data-pvc
+./mongo/mongo-pvc.yaml:   namespace: default
+./mongo/mongo-pvc.yaml: spec:
+./mongo/mongo-pvc.yaml:   accessModes:
+./mongo/mongo-pvc.yaml:     - ReadWriteOnce
+./mongo/mongo-pvc.yaml:   resources:
+./mongo/mongo-pvc.yaml:     requests:
+./mongo/mongo-pvc.yaml:       storage: 5Gi
+./mongo/mongo-pvc.yaml:   storageClassName: standard
+./mongo/mongo-pvc.yaml:   volumeName: mongo-pv
+./mongo/mongo.yaml: apiVersion: apps/v1
+./mongo/mongo.yaml: kind: Deployment
+./mongo/mongo.yaml: metadata:
+./mongo/mongo.yaml:   name: mongodb
+./mongo/mongo.yaml:   labels:
+./mongo/mongo.yaml:     app: mongodb
+./mongo/mongo.yaml: spec:
+./mongo/mongo.yaml:   replicas: 1
+./mongo/mongo.yaml:   selector:
+./mongo/mongo.yaml:     matchLabels:
+./mongo/mongo.yaml:       app: mongodb
+./mongo/mongo.yaml:   template:
+./mongo/mongo.yaml:     metadata:
+./mongo/mongo.yaml:       labels:
+./mongo/mongo.yaml:         app: mongodb
+./mongo/mongo.yaml:     spec:
+./mongo/mongo.yaml:       containers:
+./mongo/mongo.yaml:         - name: mongodb
+./mongo/mongo.yaml:           image: mongo:latest
+./mongo/mongo.yaml:           command: ["mongod", "--bind_ip_all", "--dbpath=/data/db"]
+./mongo/mongo.yaml:           ports:
+./mongo/mongo.yaml:             - containerPort: 27017
+./mongo/mongo.yaml:           volumeMounts:
+./mongo/mongo.yaml:             - name: mongo-data
+./mongo/mongo.yaml:               mountPath: /data/db
+./mongo/mongo.yaml:       volumes:
+./mongo/mongo.yaml:         - name: mongo-data
+./mongo/mongo.yaml:           persistentVolumeClaim:
+./mongo/mongo.yaml:             claimName: mongo-data-pvc
+./cms/fix-permissions.sh: #!/bin/bash
+./cms/fix-permissions.sh: echo "Fixing Statamic permissions..."
+./cms/fix-permissions.sh: kubectl exec -it $(kubectl get pods -l app=cms -o jsonpath='{.items[0].metadata.name}') -- \
+./cms/fix-permissions.sh:   sh -c "chmod -R 775 /var/www/html/storage && chown -R www-data:www-data /var/www/html/storage"
+./cms/fix-permissions.sh: echo "Permissions fixed successfully."
+./cms/service.yaml: apiVersion: v1
+./cms/service.yaml: kind: Service
+./cms/service.yaml: metadata:
+./cms/service.yaml:   name: cms
+./cms/service.yaml: spec:
+./cms/service.yaml:   selector:
+./cms/service.yaml:     app: cms
+./cms/service.yaml:   sessionAffinity: ClientIP
+./cms/service.yaml:   ports:
+./cms/service.yaml:   - port: 80
+./cms/service.yaml:     targetPort: 80
+./cms/service.yaml:     nodePort: 30080
+./cms/service.yaml:   type: NodePort
+./cms/deployment.yaml: apiVersion: apps/v1
+./cms/deployment.yaml: kind: Deployment
+./cms/deployment.yaml: metadata:
+./cms/deployment.yaml:   name: cms
+./cms/deployment.yaml:   labels:
+./cms/deployment.yaml:     app: cms
+./cms/deployment.yaml: spec:
+./cms/deployment.yaml:   replicas: 4
+./cms/deployment.yaml:   selector:
+./cms/deployment.yaml:     matchLabels:
+./cms/deployment.yaml:       app: cms
+./cms/deployment.yaml:   template:
+./cms/deployment.yaml:     metadata:
+./cms/deployment.yaml:       labels:
+./cms/deployment.yaml:         app: cms
+./cms/deployment.yaml:     spec:
+./cms/deployment.yaml:       containers:
+./cms/deployment.yaml:       - name: cms
+./cms/deployment.yaml:         image: kind-registry:5000/cms:latest
+./cms/deployment.yaml:         ports:
+./cms/deployment.yaml:         - containerPort: 80
+./cms/deployment.yaml:         env:
+./cms/deployment.yaml:         - name: APP_URL
+./cms/deployment.yaml:           value: "http://localhost"
+./cms/deployment.yaml:         - name: PHP_MEMORY_LIMIT
+./cms/deployment.yaml:           value: "512M"
+./cms/deployment.yaml:         - name: PHP_UPLOAD_MAX_FILESIZE
+./cms/deployment.yaml:           value: "10M"
+./cms/deployment.yaml:         - name: PHP_POST_MAX_SIZE
+./cms/deployment.yaml:           value: "10M"
+./chat-frontend/nginx.conf: server {
+./chat-frontend/nginx.conf:     listen 90;
+./chat-frontend/nginx.conf:     server_name localhost;
+./chat-frontend/nginx.conf:     root /usr/share/nginx/html;
+./chat-frontend/nginx.conf:     index index.html index.htm;
+./chat-frontend/nginx.conf:     
+./chat-frontend/nginx.conf:     location /ws {
+./chat-frontend/nginx.conf:         proxy_pass http://chat-backend:88;
+./chat-frontend/nginx.conf:         proxy_http_version 1.1;
+./chat-frontend/nginx.conf:         proxy_set_header Upgrade $http_upgrade;
+./chat-frontend/nginx.conf:         proxy_set_header Connection "upgrade";
+./chat-frontend/nginx.conf:         proxy_set_header Host $host;
+./chat-frontend/nginx.conf:         proxy_set_header X-Real-IP $remote_addr;
+./chat-frontend/nginx.conf:         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+./chat-frontend/nginx.conf:         proxy_read_timeout 86400;
+./chat-frontend/nginx.conf:     }
+./chat-frontend/nginx.conf:     
+./chat-frontend/nginx.conf:     error_page 500 502 503 504 /50x.html;
+./chat-frontend/nginx.conf:     location = /50x.html {
+./chat-frontend/nginx.conf:         root /usr/share/nginx/html;
+./chat-frontend/nginx.conf:     }
+./chat-frontend/nginx-config.yaml: apiVersion: v1
+./chat-frontend/nginx-config.yaml: data:
+./chat-frontend/nginx-config.yaml:   nginx.conf: "server {\n    listen 90;\n    server_name localhost;\n    root /usr/share/nginx/html;\n
+./chat-frontend/nginx-config.yaml:     \   index index.html index.htm;\n    \n    location /ws {\n        proxy_pass
+./chat-frontend/nginx-config.yaml:     http://chat-backend:88;\n        proxy_http_version 1.1;\n        proxy_set_header
+./chat-frontend/nginx-config.yaml:     Upgrade $http_upgrade;\n        proxy_set_header Connection \"upgrade\";\n        proxy_set_header
+./chat-frontend/nginx-config.yaml:     Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header
+./chat-frontend/nginx-config.yaml:     X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_read_timeout 86400;\n
+./chat-frontend/nginx-config.yaml:     \   }\n    \n    error_page 500 502 503 504 /50x.html;\n    location = /50x.html
+./chat-frontend/nginx-config.yaml:     {\n        root /usr/share/nginx/html;\n    }\n}\n"
+./chat-frontend/nginx-config.yaml: kind: ConfigMap
+./chat-frontend/nginx-config.yaml: metadata:
+./chat-frontend/nginx-config.yaml:   creationTimestamp: null
+./chat-frontend/nginx-config.yaml:   name: chat-frontend-nginx-config
+./chat-frontend/service.yaml: apiVersion: v1
+./chat-frontend/service.yaml: kind: Service
+./chat-frontend/service.yaml: metadata:
+./chat-frontend/service.yaml:   name: chat-frontend
+./chat-frontend/service.yaml:   annotations:
+./chat-frontend/service.yaml:     kubernetes.io/ingress.class: "nginx"
+./chat-frontend/service.yaml:     nginx.ingress.kubernetes.io/whitelist-source-range: "127.0.0.1" 
+./chat-frontend/service.yaml: spec:
+./chat-frontend/service.yaml:   selector:
+./chat-frontend/service.yaml:     app: chat-frontend
+./chat-frontend/service.yaml:   ports:
+./chat-frontend/service.yaml:     - port: 90
+./chat-frontend/service.yaml:       targetPort: 90
+./chat-frontend/service.yaml:       nodePort: 30090
+./chat-frontend/service.yaml:   type: NodePort
+./chat-frontend/Dockerfile: FROM node:18-alpine AS builder
+./chat-frontend/Dockerfile: WORKDIR /app
+./chat-frontend/Dockerfile: COPY chat/frontend/package*.json ./
+./chat-frontend/Dockerfile: RUN npm install
+./chat-frontend/Dockerfile: COPY chat/frontend/ ./
+./chat-frontend/Dockerfile: RUN npm run build
+./chat-frontend/Dockerfile: FROM nginx:alpine
+./chat-frontend/Dockerfile: COPY kubernetes/chat-frontend/nginx.conf /etc/nginx/conf.d/default.conf
+./chat-frontend/Dockerfile: COPY --from=builder /app/dist/frontend/browser /usr/share/nginx/html
+./chat-frontend/Dockerfile: EXPOSE 90
+./chat-frontend/Dockerfile: CMD ["nginx", "-g", "daemon off;"]
+./chat-frontend/deployment.yaml: apiVersion: apps/v1
+./chat-frontend/deployment.yaml: kind: Deployment
+./chat-frontend/deployment.yaml: metadata:
+./chat-frontend/deployment.yaml:   name: chat-frontend
+./chat-frontend/deployment.yaml:   labels:
+./chat-frontend/deployment.yaml:     app: chat-frontend
+./chat-frontend/deployment.yaml: spec:
+./chat-frontend/deployment.yaml:   replicas: 1
+./chat-frontend/deployment.yaml:   selector:
+./chat-frontend/deployment.yaml:     matchLabels:
+./chat-frontend/deployment.yaml:       app: chat-frontend
+./chat-frontend/deployment.yaml:   template:
+./chat-frontend/deployment.yaml:     metadata:
+./chat-frontend/deployment.yaml:       labels:
+./chat-frontend/deployment.yaml:         app: chat-frontend    
+./chat-frontend/deployment.yaml:     spec:
+./chat-frontend/deployment.yaml:       containers:
+./chat-frontend/deployment.yaml:       - name: chat-frontend
+./chat-frontend/deployment.yaml:         image: kind-registry:5000/chat-frontend:latest
+./chat-frontend/deployment.yaml:         ports:
+./chat-frontend/deployment.yaml:         - containerPort: 90
+./chat-frontend/deployment.yaml:         volumeMounts:
+./chat-frontend/deployment.yaml:         - name: nginx-config
+./chat-frontend/deployment.yaml:           mountPath: /etc/nginx/conf.d/default.conf
+./chat-frontend/deployment.yaml:           subPath: nginx.conf
+./chat-frontend/deployment.yaml:       volumes:
+./chat-frontend/deployment.yaml:       - name: nginx-config
+./chat-frontend/deployment.yaml:         configMap:
+./chat-frontend/deployment.yaml:           name: chat-frontend-nginx-config
+./kustomization.yaml: apiVersion: kustomize.config.k8s.io/v1beta1
+./kustomization.yaml: kind: Kustomization
+./kustomization.yaml: resources:
+./kustomization.yaml:   - registry/registry.yaml
+./kustomization.yaml:   - mongo/mongo.yaml
+./kustomization.yaml:   - common/config.yaml
+./kustomization.yaml:   - common/ingress.yaml
+./kustomization.yaml:   - chat-backend/deployment.yaml
+./kustomization.yaml:   - chat-backend/service.yaml
+./kustomization.yaml:   - chat-frontend/deployment.yaml
+./kustomization.yaml:   - chat-frontend/nginx-config.yaml
+./kustomization.yaml:   - chat-frontend/service.yaml  
+./kustomization.yaml:   - ai-backend/deployment.yaml
+./kustomization.yaml:   - ai-frontend/deployment.yaml
+./kustomization.yaml:   - ai-frontend/service.yaml
+./kustomization.yaml:   - cms/deployment.yaml
+./kustomization.yaml:   - cms/service.yaml
+./kustomization.yaml:   - apache/deployment.yaml
+./kustomization.yaml:   - apache/service.yaml
+./kustomization.yaml:   - common/network-policies.yaml
+./kustomization.yaml:   - mongo/mongo-pv.yaml
+./kustomization.yaml:   - mongo/mongo-service.yaml
+./README.md: # Kubernetes Deployment
+./README.md: This directory contains all Kubernetes configuration files for deploying the complete application, including:
+./README.md: - Statamic CMS
+./README.md: - Chat application (WebSocket backend + Angular frontend)
+./README.md: - AI application (backend + Angular frontend)
+./README.md: - MongoDB for the chat application
+./README.md: - Private Docker registry for custom images
+./README.md: ## Prerequisites
+./README.md: - Kubernetes cluster with at least 2 nodes
+./README.md: - kubectl configured to connect to your cluster
+./README.md: - Docker installed locally for building images
+./README.md: - Ingress controller installed in the cluster
+./README.md: - At least 30GB of available storage in the cluster
+./README.md: - Azure subscription with:
+./README.md:   - SQL Database (for AI application)
+./README.md:   - Blob Storage (for storing audio files)
+./README.md:   - Speech Service (for speech translation)
+./README.md: ## Setup Steps
+./README.md: 1. Set up Azure resources:
+./README.md:    - Create Azure SQL Database
+./README.md:    - Create Azure Blob Storage
+./README.md:    - Create Azure Speech Service
+./README.md:    - Update the configuration in `kubernetes/common/config.yaml` with your credentials
+./README.md: 2. Make the scripts executable:
+./README.md:    ```bash
+./README.md:    chmod +x kubernetes/build.sh kubernetes/deploy.sh
+./README.md:    ```
+./README.md: 3. Build and push Docker images to the private registry:
+./README.md:    ```bash
+./README.md:    ./kubernetes/build.sh
+./README.md:    ```
+./README.md: 4. Deploy all services to Kubernetes:
+./README.md:    ```bash
+./README.md:    ./kubernetes/deploy.sh
+./README.md:    ```
+./README.md: 5. Wait for all services to start (this may take a few minutes)
+./README.md: 6. Access the application at: http://localhost
+./README.md: ## Components
+./README.md: The application consists of the following components:
+./README.md: - **CMS (Statamic)**: Content Management System that hosts the main website
+./README.md: - **Chat Application**:
+./README.md:   - Backend: WebSocket server for real-time communication
+./README.md:   - Frontend: Angular-based chat interface
+./README.md:   - MongoDB: Database for storing chat messages
+./README.md: - **AI Application**:
+./README.md:   - Backend: Node.js API for handling audio file processing
+./README.md:   - Frontend: Angular-based interface for uploading files
+./README.md:   - Azure Services: For file storage and speech translation
+./README.md: ## Deployment Details
+./README.md: The deployment uses:
+./README.md: - Multi-container pods for complex services
+./README.md: - Service discovery for inter-service communication
+./README.md: - ConfigMaps for configuration
+./README.md: - PersistentVolumeClaims for stateful data
+./README.md: - A private Docker registry for custom images
+./README.md: - Ingress for external access
+./README.md: ## Maintenance
+./README.md: - To view logs for a specific pod:
+./README.md:   ```bash
+./README.md:   kubectl logs <pod-name>
+./README.md:   ```
+./README.md: - To restart a deployment:
+./README.md:   ```bash
+./README.md:   kubectl rollout restart deployment/<deployment-name>
+./README.md:   ```
+./README.md: - To scale a deployment:
+./README.md:   ```bash
+./README.md:   kubectl scale deployment/<deployment-name> --replicas=<number>
+./README.md:   ```
+./README.md: ## Directory Structure
+./README.md: kubernetes/
+./README.md:  ai-backend/           # AI backend configuration
+./README.md:  ai-frontend/          # AI frontend configuration
+./README.md:  chat-backend/         # Chat backend configuration
+./README.md:  chat-frontend/        # Chat frontend configuration
+./README.md:  cms/                  # CMS configuration
+./README.md:  common/               # Common configuration (ingress, configs)
+./README.md:  mongo/                # MongoDB configuration
+./README.md:  registry/             # Private registry configuration
+./README.md:  build.sh              # Script to build and push Docker images
+./README.md:  deploy.sh             # Script to deploy all components
+./README.md:  README.md             # This file
+./registry/registry.yaml: apiVersion: v1
+./registry/registry.yaml: kind: PersistentVolumeClaim
+./registry/registry.yaml: metadata:
+./registry/registry.yaml:   name: registry-pvc
+./registry/registry.yaml: spec:
+./registry/registry.yaml:   accessModes:
+./registry/registry.yaml:     - ReadWriteOnce
+./registry/registry.yaml:   resources:
+./registry/registry.yaml:     requests:
+./registry/registry.yaml:       storage: 10Gi
+./registry/registry.yaml: apiVersion: apps/v1
+./registry/registry.yaml: kind: Deployment
+./registry/registry.yaml: metadata:
+./registry/registry.yaml:   name: registry
+./registry/registry.yaml:   labels:
+./registry/registry.yaml:     app: registry
+./registry/registry.yaml: spec:
+./registry/registry.yaml:   replicas: 1
+./registry/registry.yaml:   selector:
+./registry/registry.yaml:     matchLabels:
+./registry/registry.yaml:       app: registry
+./registry/registry.yaml:   template:
+./registry/registry.yaml:     metadata:
+./registry/registry.yaml:       labels:
+./registry/registry.yaml:         app: registry
+./registry/registry.yaml:     spec:
+./registry/registry.yaml:       containers:
+./registry/registry.yaml:         - name: registry
+./registry/registry.yaml:           image: registry:2
+./registry/registry.yaml:           ports:
+./registry/registry.yaml:             - containerPort: 5000
+./registry/registry.yaml:           volumeMounts:
+./registry/registry.yaml:             - name: registry-data
+./registry/registry.yaml:               mountPath: /var/lib/registry
+./registry/registry.yaml:       volumes:
+./registry/registry.yaml:         - name: registry-data
+./registry/registry.yaml:           persistentVolumeClaim:
+./registry/registry.yaml:             claimName: registry-pvc
+./registry/registry.yaml: apiVersion: v1
+./registry/registry.yaml: kind: Service
+./registry/registry.yaml: metadata:
+./registry/registry.yaml:   name: registry
+./registry/registry.yaml: spec:
+./registry/registry.yaml:   selector:
+./registry/registry.yaml:     app: registry
+./registry/registry.yaml:   ports:
+./registry/registry.yaml:     - port: 5000
+./registry/registry.yaml:       targetPort: 5000
+./registry/registry.yaml:   type: ClusterIP
