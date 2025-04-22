@@ -104,3 +104,36 @@ data:
   azure-sql-connection-string: eW91ci1henVyZS1zdG9yYWdlLWNvbm5lY3Rpb24tc3RyaW5n
   azure-speech-key: eW91ci1henVyZS1zdG9yYWdlLWNvbm5lY3Rpb24tc3RyaW5n
   azure-speech-region: eW91ci1henVyZS1zdG9yYWdlLWNvbm5lY3Rpb24tc3RyaW5n
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-direct
+  namespace: default
+spec:
+  selector:
+    app: ai-frontend
+  ports:
+  - protocol: TCP
+    port: 91
+    targetPort: 91
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ai-direct-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: localhost
+    http:
+      paths:
+      - path: /ai-direct
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-direct
+            port:
+              number: 91

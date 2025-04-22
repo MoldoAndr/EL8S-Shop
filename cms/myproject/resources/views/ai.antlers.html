@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="{{ site:short_locale }}">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,9 +12,11 @@
             padding: 0;
             margin: 0;
         }
+
         .dark body {
             color: #e5e7eb;
         }
+
         .content {
             padding: 1rem;
             max-width: 100%;
@@ -21,9 +24,11 @@
         }
     </style>
 </head>
+
 <body class="{{ if theme == 'dark' }}dark{{ /if }}">
     <div class="content">
-        <iframe src="http://localhost/ai-service" width="100%" height="600px" frameborder="0"></iframe>
+        <iframe src="http://localhost/ai-service" class="content-iframe" title="Chat Service" style="width: 100%; height: 700px; border: none;"></iframe>
     </div>
 </body>
+
 </html>

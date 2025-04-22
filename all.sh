@@ -109,8 +109,11 @@ metadata:
   name: app-ingress
   namespace: default
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    spec.ingressClassName: nginx
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header X-Forwarded-Prefix /ai-service;
+
 spec:
   rules:
   - host: localhost
@@ -130,24 +133,6 @@ spec:
             name: ai-frontend
             port:
               number: 91
-  - http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: statamic-app
-            port:
-              number: 80
-      - path: /ai-service
-        pathType: Prefix
-        backend:
-          service:
-            name: ai-frontend
-            port:
-              number: 91
-  
-
 EOF
 
 echo -e "${GREEN}Ingress manifest created.${NC}"
