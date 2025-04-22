@@ -79,7 +79,7 @@ echo -e "${BLUE}Building and pushing Docker images...${NC}"
 build_and_push() {
   local dir=$1
   local image_name=$2
-  
+
   echo -e "${BLUE}Building $image_name...${NC}"
   cd $dir
   docker build -t registry.local:5000/$image_name:latest .
@@ -99,47 +99,11 @@ build_and_push "ai/frontend" "ai-frontend"
 
 echo -e "${BLUE}All images built and pushed successfully.${NC}"
 
-# Step 7: Create Ingress manifest
-echo -e "${BLUE}Creating Ingress manifest...${NC}"
-
-cat <<EOF > ingress.yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: app-ingress
-  namespace: default
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      proxy_set_header X-Forwarded-Prefix /ai-service;
-
-spec:
-  rules:
-  - host: localhost
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: statamic-app
-            port:
-              number: 80
-      - path: /ai-service
-        pathType: Prefix
-        backend:
-          service:
-            name: ai-frontend
-            port:
-              number: 91
-EOF
-
 echo -e "${GREEN}Ingress manifest created.${NC}"
 
 # Step 8: Apply Kubernetes manifests
-echo -e "${BLUE}Waiting 30 seconds before applying Kubernetes manifests...${NC}"
-sleep 30
+echo -e "${BLUE}Waiting 15 seconds before applying Kubernetes manifests...${NC}"
+sleep 15
 
 echo -e "${BLUE}Applying Kubernetes manifests...${NC}"
 kubectl apply -f cms/statamic-deployment.yaml

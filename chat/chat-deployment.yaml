@@ -1,60 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: chat-mongodb
-  namespace: default
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: chat-mongodb
-  template:
-    metadata:
-      labels:
-        app: chat-mongodb
-    spec:
-      containers:
-      - name: mongodb
-        image: mongo:latest
-        ports:
-        - containerPort: 27017
-        volumeMounts:
-        - name: mongo-data
-          mountPath: /data/db
-      volumes:
-      - name: mongo-data
-        persistentVolumeClaim:
-          claimName: chat-mongo-pvc
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: chat-mongodb
-  namespace: default
-spec:
-  selector:
-    app: chat-mongodb
-  ports:
-  - protocol: TCP
-    port: 27017
-    targetPort: 27017
-  type: ClusterIP
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: chat-mongo-pvc
-  namespace: default
-spec:
-  accessModes:
-  - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
   name: chat-backend
   namespace: default
 spec:
@@ -68,17 +14,24 @@ spec:
         app: chat-backend
     spec:
       containers:
-      - name: backend
-        image: localhost:5000/chat-backend:latest
-        ports:
-        - containerPort: 88
-        env:
-        - name: PORT_WS
-          value: "88"
-        - name: MONGO_URI
-          value: "mongodb://chat-mongodb:27017/chatapp"
-        - name: NODE_ENV
-          value: "production"
+        - name: chat-backend
+          image: localhost:5000/chat-backend:latest
+          ports:
+            - containerPort: 88
+          env:
+            - name: PORT_WS
+              value: "88"
+            - name: MONGO_URI
+              value: "mongodb://mongodb-service:27017/chatapp"
+            - name: NODE_ENV
+              value: "production"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
 ---
 apiVersion: v1
 kind: Service
@@ -89,9 +42,9 @@ spec:
   selector:
     app: chat-backend
   ports:
-  - protocol: TCP
-    port: 88
-    targetPort: 88
+    - protocol: TCP
+      port: 88
+      targetPort: 88
   type: ClusterIP
 ---
 apiVersion: apps/v1
@@ -110,10 +63,17 @@ spec:
         app: chat-frontend
     spec:
       containers:
-      - name: frontend
-        image: localhost:5000/chat-frontend:latest
-        ports:
-        - containerPort: 90
+        - name: chat-frontend
+          image: localhost:5000/chat-frontend:latest
+          ports:
+            - containerPort: 90
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
 ---
 apiVersion: v1
 kind: Service
@@ -124,42 +84,61 @@ spec:
   selector:
     app: chat-frontend
   ports:
-  - protocol: TCP
-    port: 90
-    targetPort: 90
+    - protocol: TCP
+      port: 90
+      targetPort: 90
   type: ClusterIP
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: chat-apache
+  name: mongodb
   namespace: default
 spec:
-  replicas: 4
+  replicas: 1
   selector:
     matchLabels:
-      app: chat-apache
+      app: mongodb
   template:
     metadata:
       labels:
-        app: chat-apache
+        app: mongodb
     spec:
       containers:
-      - name: apache
-        image: localhost:5000/chat-apache:latest
-        ports:
-        - containerPort: 80
+        - name: mongodb
+          image: mongo:latest
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: mongodb-data
+              mountPath: /data/db
+      volumes:
+        - name: mongodb-data
+          persistentVolumeClaim:
+            claimName: mongodb-pvc
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: chat-apache
+  name: mongodb-service
   namespace: default
 spec:
   selector:
-    app: chat-apache
+    app: mongodb
   ports:
-  - protocol: TCP
-    port: 80
-    targetPort: 80
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017
   type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

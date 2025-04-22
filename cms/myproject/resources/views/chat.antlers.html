@@ -1,29 +1,34 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="{{ site:short_locale }}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body {
-            font-family: sans-serif;
-            color: #1f2937;
-            background: transparent;
-            padding: 0;
-            margin: 0;
-        }
-        .dark body {
-            color: #e5e7eb;
-        }
-        .content {
-            padding: 1rem;
-            max-width: 100%;
-            box-sizing: border-box;
-        }
-    </style>
-</head>
-<body class="{{ if theme == 'dark' }}dark{{ /if }}">
-    <div class="content">
-<iframe src="http://localhost:30090" class="content-iframe" title="Chat Service" style="width: 100%; height: 700px; border: none;"></iframe>
-</div>
-</body>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <style>
+            body {
+                font-family: sans-serif;
+                color: #1f2937;
+                background: transparent;
+                padding: 0;
+                margin: 0;
+            }
+            .dark body {
+                color: #e5e7eb;
+            }
+            .content {
+                padding: 1rem;
+                max-width: 100%;
+                box-sizing: border-box;
+            }
+        </style>
+    </head>
+    <body class="{{ if theme == 'dark' }}dark{{ /if }}">
+        <div class="content">
+            <iframe
+                src="http://localhost/chat-client"
+                class="content-iframe"
+                title="Chat Service"
+                style="width: 100%; height: 700px; border: none"
+            ></iframe>
+        </div>
+    </body>
 </html>
