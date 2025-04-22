@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-
+ 
 # Define colors for better visibility
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
