@@ -5,8 +5,26 @@ metadata:
   namespace: default
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
+    spec.ingressClassName: nginx
 spec:
   rules:
+  - host: localhost
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: statamic-app
+            port:
+              number: 80
+      - path: /ai-service
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-frontend
+            port:
+              number: 91
   - http:
       paths:
       - path: /
@@ -16,17 +34,12 @@ spec:
             name: statamic-app
             port:
               number: 80
-      - path: /chat
-        pathType: Prefix
-        backend:
-          service:
-            name: chat-frontend
-            port:
-              number: 90
-      - path: /ai
+      - path: /ai-service
         pathType: Prefix
         backend:
           service:
             name: ai-frontend
             port:
               number: 91
+  
+
