@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-backend
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-backend
+  template:
+    metadata:
+      labels:
+        app: ai-backend
+    spec:
+      containers:
+      - name: backend
+        image: localhost:5000/ai-backend:latest
+        ports:
+        - containerPort: 89
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "89"
+        - name: AZURE_STORAGE_CONNECTION_STRING
+          valueFrom:
+            secretKeyRef:
+              name: ai-secrets
+              key: azure-storage-connection-string
+        - name: AZURE_SQL_CONNECTION_STRING
+          valueFrom:
+            secretKeyRef:
+              name: ai-secrets
+              key: azure-sql-connection-string
+        - name: AZURE_SPEECH_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ai-secrets
+              key: azure-speech-key
+        - name: AZURE_SPEECH_REGION
+          valueFrom:
+            secretKeyRef:
+              name: ai-secrets
+              key: azure-speech-region
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-backend
+  namespace: default
+spec:
+  selector:
+    app: ai-backend
+  ports:
+  - protocol: TCP
+    port: 89
+    targetPort: 89
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-frontend
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-frontend
+  template:
+    metadata:
+      labels:
+        app: ai-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: localhost:5000/ai-frontend:latest
+        ports:
+        - containerPort: 91
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-frontend
+  namespace: default
+spec:
+  selector:
+    app: ai-frontend
+  ports:
+  - protocol: TCP
+    port: 91
+    targetPort: 91
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ai-secrets
+  namespace: default
+type: Opaque
+data:
+  azure-storage-connection-string: eW91ci1henVyZS1zdG9yYWdlLWNvbm5lY3Rpb24tc3RyaW5n
+  azure-sql-connection-string: eW91ci1henVyZS1zdG9yYWdlLWNvbm5lY3Rpb24tc3RyaW5n
+  azure-speech-key: eW91ci1henVyZS1zdG9yYWdlLWNvbm5lY3Rpb24tc3RyaW5n
+  azure-speech-region: eW91ci1henVyZS1zdG9yYWdlLWNvbm5lY3Rpb24tc3RyaW5n

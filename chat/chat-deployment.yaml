@@ -1,0 +1,165 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-mongodb
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chat-mongodb
+  template:
+    metadata:
+      labels:
+        app: chat-mongodb
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:latest
+        ports:
+        - containerPort: 27017
+        volumeMounts:
+        - name: mongo-data
+          mountPath: /data/db
+      volumes:
+      - name: mongo-data
+        persistentVolumeClaim:
+          claimName: chat-mongo-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-mongodb
+  namespace: default
+spec:
+  selector:
+    app: chat-mongodb
+  ports:
+  - protocol: TCP
+    port: 27017
+    targetPort: 27017
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: chat-mongo-pvc
+  namespace: default
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-backend
+  namespace: default
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: chat-backend
+  template:
+    metadata:
+      labels:
+        app: chat-backend
+    spec:
+      containers:
+      - name: backend
+        image: localhost:5000/chat-backend:latest
+        ports:
+        - containerPort: 88
+        env:
+        - name: PORT_WS
+          value: "88"
+        - name: MONGO_URI
+          value: "mongodb://chat-mongodb:27017/chatapp"
+        - name: NODE_ENV
+          value: "production"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-backend
+  namespace: default
+spec:
+  selector:
+    app: chat-backend
+  ports:
+  - protocol: TCP
+    port: 88
+    targetPort: 88
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-frontend
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chat-frontend
+  template:
+    metadata:
+      labels:
+        app: chat-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: localhost:5000/chat-frontend:latest
+        ports:
+        - containerPort: 90
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-frontend
+  namespace: default
+spec:
+  selector:
+    app: chat-frontend
+  ports:
+  - protocol: TCP
+    port: 90
+    targetPort: 90
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-apache
+  namespace: default
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: chat-apache
+  template:
+    metadata:
+      labels:
+        app: chat-apache
+    spec:
+      containers:
+      - name: apache
+        image: localhost:5000/chat-apache:latest
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-apache
+  namespace: default
+spec:
+  selector:
+    app: chat-apache
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+  type: ClusterIP
