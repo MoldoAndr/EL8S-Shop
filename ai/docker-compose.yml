@@ -9,8 +9,11 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=development
+      - API_URL=http://ai-backend:89/api
     depends_on:
       - ai-backend
+    networks:
+      - ai-network
 
   ai-backend:
     build: ./backend
@@ -20,15 +23,10 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
-    environment:
-      - NODE_ENV=development
-      - PORT=89
-      - AZURE_STORAGE_CONNECTION_STRING=https://centralindia.api.cognitive.microsoft.com/
-      - AZURE_SQL_CONNECTION_STRING=${AZURE_SQL_CONNECTION_STRING}
-      - AZURE_SPEECH_KEY=896THn8b3fJwSq26scagN4CyhWS3FQUxDTnxNaPI3RHQdWTSWgcVJQQJ99BDACGhslBXJ3w3AAAYACOGQXEO
-      - AZURE_SPEECH_REGION=centralindia
     restart: unless-stopped
+    networks:
+      - ai-network
 
 networks:
-  default:
-    name: ai-network
+  ai-network:
+    driver: bridge

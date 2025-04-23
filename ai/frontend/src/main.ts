@@ -1,14 +1,14 @@
-import { bootstrapApplication } from '@angular/platform-browser';
-import { appConfig } from './app/app.config';
-import { AppComponent } from './app/app.component';
+// src/main.ts
+import { platformBrowserDynamic } from '@angular/platform-browser-dynamic';
+import { AppModule } from './app/app.module';
+import { environment } from './environments/environment';
 
-const baseElement = document.querySelector('base');
-if (baseElement && !baseElement.getAttribute('href')) {
-  const path = window.location.pathname.startsWith('/ai-service') 
-    ? '/ai-service/' 
-    : '/';
-  baseElement.setAttribute('href', path);
+if (environment.production) {
+  // Enable production mode
+  // This disables Angular's development mode and improves performance
+  // import { enableProdMode } from '@angular/core';
+  // enableProdMode();
 }
 
-bootstrapApplication(AppComponent, appConfig)
-  .catch((err) => console.error('Error bootstrapping app:', err));
+platformBrowserDynamic().bootstrapModule(AppModule)
+  .catch(err => console.error(err));
