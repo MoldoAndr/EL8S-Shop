@@ -10,7 +10,7 @@ const dotenv = require('dotenv');
 const { BlobServiceClient } = require('@azure/storage-blob');
 const sql = require('mssql');
 const sdk = require('microsoft-cognitiveservices-speech-sdk');
-
+process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0
 dotenv.config();
 
 const app = express();
@@ -160,7 +160,6 @@ async function processAudioFile(filePath, blobUrl, targetLanguage) {
     
     // Configure target language
     speechConfig.addTargetLanguage(targetLanguage);
-    
     // Use pushStream instead of direct file input
     const pushStream = sdk.AudioInputStream.createPushStream();
     

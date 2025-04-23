@@ -1,3 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ai-uploads-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -18,31 +30,42 @@ spec:
         image: localhost:5000/ai-backend:latest
         ports:
         - containerPort: 89
+        envFrom:
+        - secretRef:
+            name: azure-credentials
         env:
-        - name: NODE_ENV
-          value: "production"
         - name: PORT
           value: "89"
-        - name: AZURE_STORAGE_CONNECTION_STRING
-          valueFrom:
-            secretKeyRef:
-              name: ai-secrets
-              key: azure-storage-connection-string
-        - name: AZURE_SQL_CONNECTION_STRING
-          valueFrom:
-            secretKeyRef:
-              name: ai-secrets
-              key: azure-sql-connection-string
-        - name: AZURE_SPEECH_KEY
-          valueFrom:
-            secretKeyRef:
-              name: ai-secrets
-              key: azure-speech-key
-        - name: AZURE_SPEECH_REGION
-          valueFrom:
-            secretKeyRef:
-              name: ai-secrets
-              key: azure-speech-region
+        - name: NODE_ENV
+          value: "production"
+        volumeMounts:
+        - name: uploads
+          mountPath: /app/uploads
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 89
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 89
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+      volumes:
+      - name: uploads
+        persistentVolumeClaim:
+          claimName: ai-uploads-pvc
 ---
 apiVersion: v1
 kind: Service
@@ -78,6 +101,16 @@ spec:
         image: localhost:5000/ai-frontend:latest
         ports:
         - containerPort: 91
+        env:
+        - name: API_URL
+          value: "http://ai-backend:89/api"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
 ---
 apiVersion: v1
 kind: Service
@@ -94,18 +127,6 @@ spec:
   type: ClusterIP
 ---
 apiVersion: v1
-kind: Secret
-metadata:
-  name: ai-secrets
-  namespace: default
-type: Opaque
-data:
-  azure-storage-connection-string: eW91ci1henVyZS1zdG9yYWdlLWNvbm5lY3Rpb24tc3RyaW5n
-  azure-sql-connection-string: eW91ci1henVyZS1zdG9yYWdlLWNvbm5lY3Rpb24tc3RyaW5n
-  azure-speech-key: eW91ci1henVyZS1zdG9yYWdlLWNvbm5lY3Rpb24tc3RyaW5n
-  azure-speech-region: eW91ci1henVyZS1zdG9yYWdlLWNvbm5lY3Rpb24tc3RyaW5n
----
-apiVersion: v1
 kind: Service
 metadata:
   name: ai-direct
@@ -118,22 +139,3 @@ spec:
     port: 91
     targetPort: 91
   type: ClusterIP
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: ai-direct-ingress
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-spec:
-  rules:
-  - host: localhost
-    http:
-      paths:
-      - path: /ai-direct
-        pathType: Prefix
-        backend:
-          service:
-            name: ai-direct
-            port:
-              number: 91

@@ -106,6 +106,7 @@ echo -e "${BLUE}Waiting 15 seconds before applying Kubernetes manifests...${NC}"
 sleep 15
 
 echo -e "${BLUE}Applying Kubernetes manifests...${NC}"
+kubectl apply -f secret.yaml
 kubectl apply -f cms/statamic-deployment.yaml
 kubectl apply -f chat/chat-deployment.yaml
 kubectl apply -f ai/ai-deployment.yaml

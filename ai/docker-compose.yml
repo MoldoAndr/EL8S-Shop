@@ -1,32 +1,49 @@
 services:
   ai-frontend:
-    build: ./frontend
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: ai-frontend
     ports:
       - "91:91"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - API_URL=http://ai-backend:89/api
     depends_on:
       - ai-backend
     networks:
       - ai-network
+    restart: unless-stopped
 
   ai-backend:
-    build: ./backend
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: ai-backend
     ports:
       - "89:89"
+    environment:
+      - PORT=89
+      - NODE_ENV=production
+      # Azure credentials (these would be replaced with actual values in production)
+      - AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING}
+      - AZURE_SPEECH_KEY=${AZURE_SPEECH_KEY}
+      - AZURE_SPEECH_REGION=${AZURE_SPEECH_REGION}
+      # Database config (would connect to Azure SQL in production)
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_SERVER=${DB_SERVER}
+      - DB_NAME=${DB_NAME}
     volumes:
-      - ./backend:/app
-      - /app/node_modules
-    restart: unless-stopped
+      - ai-uploads:/app/uploads
     networks:
       - ai-network
+    restart: unless-stopped
 
 networks:
   ai-network:
     driver: bridge
+
+volumes:
+  ai-uploads:
+    driver: local
