@@ -1,11 +1,4 @@
-// src/app/chat/chat.component.ts
-import {
-  Component,
-  OnInit,
-  OnDestroy,
-  NgZone,
-  ChangeDetectorRef,
-} from "@angular/core";
+import { Component, OnInit, OnDestroy, NgZone, ChangeDetectorRef, ViewChild, ElementRef } from "@angular/core";
 import { WebsocketService, Message } from "../services/websocket.service";
 import { Subscription } from "rxjs";
 import { FormBuilder, FormGroup, Validators } from "@angular/forms";
@@ -28,6 +21,8 @@ export class ChatComponent implements OnInit, OnDestroy {
   connectionStatus: string = "disconnected";
   errorMessage: string = "";
 
+  @ViewChild('chatMessages', { static: false }) chatMessagesContainer!: ElementRef<HTMLDivElement>;
+
   private messageSubscription: Subscription = new Subscription();
   private historySubscription: Subscription = new Subscription();
 
@@ -35,7 +30,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     private websocketService: WebsocketService,
     private fb: FormBuilder,
     private zone: NgZone,
-    private cdr: ChangeDetectorRef,
+    private cdr: ChangeDetectorRef
   ) {
     this.chatForm = this.fb.group({
       message: ["", Validators.required],
@@ -73,7 +68,6 @@ export class ChatComponent implements OnInit, OnDestroy {
             next: (message: Message) => {
               console.log("Message received in component:", message);
 
-              // Run inside Angular zone to ensure UI updates
               this.zone.run(() => {
                 if (message.type === "connect_success") {
                   this.connectionStatus = "connected";
@@ -85,12 +79,9 @@ export class ChatComponent implements OnInit, OnDestroy {
                   message.type === "message" ||
                   message.type === "system"
                 ) {
-                  // Add the message to our list
                   this.messages.push(message);
-                  // Force change detection
                   this.cdr.detectChanges();
-                  // Scroll to bottom after a small delay to allow rendering
-                  setTimeout(() => this.scrollToBottom(), 50);
+                  this.scrollToBottom(); // Scroll immediately after adding message
                 }
               });
             },
@@ -114,7 +105,7 @@ export class ChatComponent implements OnInit, OnDestroy {
                 this.zone.run(() => {
                   this.messages = history;
                   this.cdr.detectChanges();
-                  setTimeout(() => this.scrollToBottom(), 50);
+                  this.scrollToBottom(); // Scroll after loading history
                 });
               }
             },
@@ -140,18 +131,17 @@ export class ChatComponent implements OnInit, OnDestroy {
     if (this.chatForm.valid && this.websocketService.isConnected()) {
       const message = this.chatForm.value.message;
       this.websocketService.sendMessage(this.username, message);
+      
+      // Optimistically add the message to the UI
+      this.messages.push({
+        username: this.username,
+        message: message,
+        timestamp: new Date(),
+        type: 'chat'
+      });
       this.chatForm.reset();
-
-      // Optionally add the message to the UI immediately for better responsiveness
-      // This can create duplicates if you don't handle it carefully
-      // this.messages.push({
-      //   username: this.username,
-      //   message: message,
-      //   timestamp: new Date(),
-      //   type: 'chat'
-      // });
-      // this.cdr.detectChanges();
-      // this.scrollToBottom();
+      this.cdr.detectChanges();
+      this.scrollToBottom(); // Scroll after sending message
     } else if (!this.websocketService.isConnected()) {
       this.errorMessage = "Cannot send message: not connected to server";
       this.connectionStatus = "error";
@@ -168,9 +158,12 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   scrollToBottom(): void {
-    const chatContainer = document.querySelector(".chat-messages");
-    if (chatContainer) {
-      chatContainer.scrollTop = chatContainer.scrollHeight;
+    if (this.chatMessagesContainer) {
+      const container = this.chatMessagesContainer.nativeElement;
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: 'smooth' // Smooth scrolling for better UX
+      });
     }
   }
 

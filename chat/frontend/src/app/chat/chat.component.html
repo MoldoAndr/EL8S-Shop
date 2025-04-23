@@ -22,9 +22,8 @@
       <button type="submit" [disabled]="usernameForm.invalid" class="btn btn-primary">Connect</button>
     </form>
   </div>
-  <!-- Chat panel and messages -->
   <div *ngIf="isLoggedIn" class="chat-panel">
-    <div class="chat-messages">
+    <div class="chat-messages" #chatMessages>
       <div *ngFor="let msg of messages" class="message" [ngClass]="{'own-message': msg.username === username}">
         <div class="message-header">
           <span class="username">{{ msg.username || 'System' }}</span>
@@ -35,7 +34,6 @@
         </div>
       </div>
     </div>
-    
     <!-- Message input form -->
     <form [formGroup]="chatForm" (ngSubmit)="sendMessage()" class="message-form">
       <div class="input-group">

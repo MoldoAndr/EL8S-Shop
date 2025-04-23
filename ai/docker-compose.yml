@@ -23,10 +23,10 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=89
-      - AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING}
+      - AZURE_STORAGE_CONNECTION_STRING=https://centralindia.api.cognitive.microsoft.com/
       - AZURE_SQL_CONNECTION_STRING=${AZURE_SQL_CONNECTION_STRING}
-      - AZURE_SPEECH_KEY=${AZURE_SPEECH_KEY}
-      - AZURE_SPEECH_REGION=${AZURE_SPEECH_REGION}
+      - AZURE_SPEECH_KEY=896THn8b3fJwSq26scagN4CyhWS3FQUxDTnxNaPI3RHQdWTSWgcVJQQJ99BDACGhslBXJ3w3AAAYACOGQXEO
+      - AZURE_SPEECH_REGION=centralindia
     restart: unless-stopped
 
 networks:

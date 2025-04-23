@@ -7,266 +7,236 @@ const morgan = require('morgan');
 const { v4: uuidv4 } = require('uuid');
 const dotenv = require('dotenv');
 
-// Import Azure services
 const { BlobServiceClient } = require('@azure/storage-blob');
 const sql = require('mssql');
 const sdk = require('microsoft-cognitiveservices-speech-sdk');
 
-// Load environment variables
 dotenv.config();
 
-// Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 89;
 
-// Configure middleware
 app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 
-// Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Configure multer for file uploads
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${uuidv4()}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
-  }
+  destination: (req, file, cb) => cb(null, 'uploads/'),
+  filename: (req, file, cb) =>
+    cb(null, `${Date.now()}-${uuidv4()}${path.extname(file.originalname)}`)
 });
 
 const upload = multer({
   storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+  limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    // Accept audio files only
-    const filetypes = /wav|mp3|ogg|m4a|flac/;
-    const mimetype = filetypes.test(file.mimetype);
-    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-    
-    if (mimetype && extname) {
-      return cb(null, true);
-    }
-    cb(new Error('Only audio files are allowed!'));
+    const allowed = /wav|mp3|ogg|m4a|flac/;
+    const mimetype = allowed.test(file.mimetype);
+    const extname = allowed.test(path.extname(file.originalname).toLowerCase());
+    return mimetype && extname ? cb(null, true) : cb(new Error('Only audio files allowed'));
   }
 });
 
-// SQL Database Configuration
 const sqlConfig = {
-  user: process.env.DB_USER || 'YOUR_DB_USER',
-  password: process.env.DB_PASSWORD || 'YOUR_DB_PASSWORD',
-  server: process.env.DB_SERVER || 'YOUR_DB_SERVER',
-  database: process.env.DB_NAME || 'YOUR_DB_NAME',
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  server: process.env.DB_SERVER,
+  database: process.env.DB_NAME,
   options: {
     encrypt: true,
     trustServerCertificate: false
   }
 };
 
-// Azure Blob Storage Configuration
 const blobServiceClient = BlobServiceClient.fromConnectionString(
   process.env.AZURE_STORAGE_CONNECTION_STRING
 );
 const containerName = 'audio-files';
 
-// Initialize Azure resources
 async function initializeAzureResources() {
   try {
-    // Create container if it doesn't exist
     const containerClient = blobServiceClient.getContainerClient(containerName);
-    const createContainerResponse = await containerClient.createIfNotExists();
-    console.log(`Container created: ${createContainerResponse.succeeded}`);
-    
-    // Test SQL connection
+    await containerClient.createIfNotExists();
     await sql.connect(sqlConfig);
-    console.log('Connected to SQL Database');
+    console.log('Azure resources initialized.');
   } catch (error) {
-    console.error('Error initializing Azure resources:', error);
+    console.error('Azure init error:', error);
   }
 }
 
-// Routes
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'ok', message: 'Service is running' });
-});
+app.get('/api/health', (req, res) =>
+  res.status(200).json({ status: 'ok', message: 'Service is running' })
+);
 
-// Upload file route
 app.post('/api/upload', upload.single('audioFile'), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
-
-    const fileId = uuidv4();
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    console.log("✅ Received upload request");
+    
     const filePath = req.file.path;
     const fileName = req.file.originalname;
     const targetLanguage = req.body.targetLanguage || 'en-US';
-    
-    // Upload to blob storage
+
     const containerClient = blobServiceClient.getContainerClient(containerName);
-    const blockBlobClient = containerClient.getBlockBlobClient(`${fileId}${path.extname(fileName)}`);
-    
-    const uploadBlobResponse = await blockBlobClient.uploadFile(filePath);
-    console.log(`File uploaded with response: ${uploadBlobResponse.requestId}`);
-    
-    // Save metadata to SQL
+    const blobName = `${Date.now()}-${fileName}`;
+    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+
+    await blockBlobClient.uploadFile(filePath);
+
     await sql.connect(sqlConfig);
-    const result = await sql.query`
-      INSERT INTO FileProcessing (FileId, FileName, BlobUrl, UploadTime, Status, TargetLanguage)
-      VALUES (${fileId}, ${fileName}, ${blockBlobClient.url}, ${new Date()}, 'Pending', ${targetLanguage})
+    await sql.query`
+      INSERT INTO RequestsHistory (FileName, BlobUrl, TimeStamp, TranslationResult)
+      VALUES (${fileName}, ${blockBlobClient.url}, ${new Date()}, 'Pending')
     `;
-    
-    // Start async processing
-    processAudioFile(fileId, filePath, targetLanguage);
-    
+
+    // Don't delete the file here, we'll delete it after processing is complete
+    // Start processing in the background
+    processAudioFile(filePath, blockBlobClient.url, targetLanguage);
+
     res.status(200).json({
-      fileId,
-      message: 'File uploaded successfully. Processing started.',
-      status: 'Pending'
+      fileName,
+      blobUrl: blockBlobClient.url,
+      status: 'Pending',
+      message: 'File uploaded. Processing started.'
     });
-    
-    // Delete local file after upload
-    fs.unlinkSync(filePath);
-    
   } catch (error) {
-    console.error('Error uploading file:', error);
-    res.status(500).json({ error: 'File upload failed', details: error.message });
+    console.error('Upload error:', error);
+    res.status(500).json({ error: 'Upload failed', details: error.message });
   }
 });
 
-// Get all processed files
 app.get('/api/files', async (req, res) => {
   try {
     await sql.connect(sqlConfig);
     const result = await sql.query`
-      SELECT FileId, FileName, BlobUrl, UploadTime, Status, ResultText, TargetLanguage
-      FROM FileProcessing
-      ORDER BY UploadTime DESC
+      SELECT Id, FileName, BlobUrl, TimeStamp, TranslationResult
+      FROM RequestsHistory
+      ORDER BY TimeStamp DESC
     `;
-    
     res.status(200).json(result.recordset);
   } catch (error) {
-    console.error('Error fetching files:', error);
-    res.status(500).json({ error: 'Failed to retrieve files', details: error.message });
+    res.status(500).json({ error: 'Failed to fetch files', details: error.message });
   }
 });
 
-// Get file by ID
-app.get('/api/files/:fileId', async (req, res) => {
+app.get('/api/files/:id', async (req, res) => {
   try {
-    const { fileId } = req.params;
-    
+    const id = parseInt(req.params.id);
     await sql.connect(sqlConfig);
     const result = await sql.query`
-      SELECT FileId, FileName, BlobUrl, UploadTime, Status, ResultText, TargetLanguage
-      FROM FileProcessing
-      WHERE FileId = ${fileId}
+      SELECT Id, FileName, BlobUrl, TimeStamp, TranslationResult
+      FROM RequestsHistory
+      WHERE Id = ${id}
     `;
-    
-    if (result.recordset.length === 0) {
-      return res.status(404).json({ error: 'File not found' });
-    }
-    
+    if (!result.recordset.length) return res.status(404).json({ error: 'File not found' });
     res.status(200).json(result.recordset[0]);
   } catch (error) {
-    console.error('Error fetching file:', error);
-    res.status(500).json({ error: 'Failed to retrieve file', details: error.message });
+    res.status(500).json({ error: 'Error retrieving file', details: error.message });
   }
 });
 
-// Process audio file using Azure Speech Translation
-async function processAudioFile(fileId, filePath, targetLanguage) {
+async function processAudioFile(filePath, blobUrl, targetLanguage) {
   try {
-    // Update status to Processing
     await sql.connect(sqlConfig);
     await sql.query`
-      UPDATE FileProcessing
-      SET Status = 'Processing'
-      WHERE FileId = ${fileId}
+      UPDATE RequestsHistory
+      SET TranslationResult = 'Processing'
+      WHERE BlobUrl = ${blobUrl}
     `;
-    
-    // Configure speech translation
+
+    // Create speech config
     const speechConfig = sdk.SpeechTranslationConfig.fromSubscription(
       process.env.AZURE_SPEECH_KEY,
       process.env.AZURE_SPEECH_REGION
     );
     
-    // The source language is auto-detected
+    // Set the source speech recognition language (required)
+    speechConfig.speechRecognitionLanguage = "en-US"; // Assuming English is the source language
+    
+    // Configure target language
     speechConfig.addTargetLanguage(targetLanguage);
     
-    const audioConfig = sdk.AudioConfig.fromWavFileInput(filePath);
+    // Use pushStream instead of direct file input
+    const pushStream = sdk.AudioInputStream.createPushStream();
+    
+    // Read file in chunks and push to stream
+    const fileBuffer = fs.readFileSync(filePath);
+    pushStream.write(fileBuffer);
+    pushStream.close();
+    
+    // Create audio config from push stream
+    const audioConfig = sdk.AudioConfig.fromStreamInput(pushStream);
+    
+    // Create recognizer with the configs
     const recognizer = new sdk.TranslationRecognizer(speechConfig, audioConfig);
-    
-    let translatedText = '';
-    
-    // Start recognition
+
     recognizer.recognizeOnceAsync(
       async (result) => {
-        if (result.reason === sdk.ResultReason.TranslatedSpeech) {
-          translatedText = result.translations.get(targetLanguage);
-          console.log(`Translation successful: ${translatedText}`);
-          
-          // Update database with results
-          await sql.connect(sqlConfig);
-          await sql.query`
-            UPDATE FileProcessing
-            SET Status = 'Completed', ResultText = ${translatedText}
-            WHERE FileId = ${fileId}
-          `;
-        } else {
-          console.error(`Translation failed: ${result.reason}`);
-          
-          // Update database with failure
-          await sql.connect(sqlConfig);
-          await sql.query`
-            UPDATE FileProcessing
-            SET Status = 'Failed', ResultText = ${`Error: ${result.reason}`}
-            WHERE FileId = ${fileId}
-          `;
+        const success = result.reason === sdk.ResultReason.TranslatedSpeech;
+        const translation = success
+          ? result.translations.get(targetLanguage)
+          : `Error: ${result.reason}`;
+
+        await sql.connect(sqlConfig);
+        await sql.query`
+          UPDATE RequestsHistory
+          SET TranslationResult = ${translation}
+          WHERE BlobUrl = ${blobUrl}
+        `;
+        recognizer.close();
+        
+        // Delete the file after processing is complete
+        try {
+          fs.unlinkSync(filePath);
+          console.log(`File ${filePath} deleted successfully after processing`);
+        } catch (deleteErr) {
+          console.error(`Error deleting file ${filePath}:`, deleteErr);
         }
-        
-        recognizer.close();
       },
-      (err) => {
-        console.error(`Error during translation: ${err}`);
-        
-        // Update database with error
-        sql.connect(sqlConfig).then(() => {
-          sql.query`
-            UPDATE FileProcessing
-            SET Status = 'Failed', ResultText = ${`Error: ${err}`}
-            WHERE FileId = ${fileId}
-          `;
-        });
-        
+      async (err) => {
+        console.error('Recognition error:', err);
+        await sql.connect(sqlConfig);
+        await sql.query`
+          UPDATE RequestsHistory
+          SET TranslationResult = ${'Error: ' + err}
+          WHERE BlobUrl = ${blobUrl}
+        `;
         recognizer.close();
+        
+        // Delete the file even on error
+        try {
+          fs.unlinkSync(filePath);
+          console.log(`File ${filePath} deleted successfully after error`);
+        } catch (deleteErr) {
+          console.error(`Error deleting file ${filePath}:`, deleteErr);
+        }
       }
     );
-  } catch (error) {
-    console.error('Error processing audio file:', error);
+  } catch (err) {
+    console.error('Processing error:', err);
+    await sql.connect(sqlConfig);
+    await sql.query`
+      UPDATE RequestsHistory
+      SET TranslationResult = ${'Error: ' + err.message}
+      WHERE BlobUrl = ${blobUrl}
+    `;
     
-    // Update database with error
+    // Delete the file on processing setup error
     try {
-      await sql.connect(sqlConfig);
-      await sql.query`
-        UPDATE FileProcessing
-        SET Status = 'Failed', ResultText = ${`Error: ${error.message}`}
-        WHERE FileId = ${fileId}
-      `;
-    } catch (dbError) {
-      console.error('Error updating database:', dbError);
+      fs.unlinkSync(filePath);
+      console.log(`File ${filePath} deleted successfully after processing error`);
+    } catch (deleteErr) {
+      console.error(`Error deleting file ${filePath}:`, deleteErr);
     }
   }
 }
 
-// Start server
 app.listen(PORT, async () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
   await initializeAzureResources();
 });
