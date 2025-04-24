@@ -4,7 +4,6 @@ RUN apk add --no-cache ca-certificates tzdata \
  && update-ca-certificates
 WORKDIR /app
 COPY package*.json ./
-COPY . .
 RUN npm install
 COPY . .
 EXPOSE 89

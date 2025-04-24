@@ -13,12 +13,8 @@ const { BlobServiceClient } = require('@azure/storage-blob');
 const sql = require('mssql');
 const sdk = require('microsoft-cognitiveservices-speech-sdk');
 
-const ca = fs.readFileSync('/etc/ssl/certs/ca-certificates.crt');
 const blobServiceClient = BlobServiceClient.fromConnectionString(
   process.env.AZURE_STORAGE_CONNECTION_STRING,
-  {
-    httpsAgent: new https.Agent({ ca })
-  }
 );
 
 
@@ -66,8 +62,6 @@ const containerName = 'audio-files';
 
 async function initializeAzureResources() {
   try {
-    const containerClient = blobServiceClient.getContainerClient(containerName);
-    await containerClient.createIfNotExists();
     await sql.connect(sqlConfig);
     console.log('Azure resources initialized.');
   } catch (error) {

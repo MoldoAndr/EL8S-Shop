@@ -4,18 +4,25 @@ const path = require("path");
 
 gulp.task("inline-assets", function (done) {
   const distPath = path.resolve("dist/frontend/browser");
+  
+  if (!fs.existsSync(distPath)) {
+    console.error(`Error: Distribution directory not found at ${distPath}`);
+    done(new Error("Distribution directory not found"));
+    return;
+  }
+  
   const indexPath = path.join(distPath, "index.html");
-
+  
   if (!fs.existsSync(indexPath)) {
-    console.error("Error: index.html not found at path:", indexPath);
+    console.error(`Error: index.html not found at ${indexPath}`);
     console.log("Directory contents:", fs.readdirSync(distPath));
     done(new Error("index.html not found"));
     return;
   }
-
+  
   console.log("Reading index.html from:", indexPath);
   let indexContent = fs.readFileSync(indexPath, "utf8");
-
+  
   // Inline CSS
   const cssRegex = /<link rel="stylesheet" href="([^"]+\.css)">/g;
   let match;
@@ -24,20 +31,20 @@ gulp.task("inline-assets", function (done) {
   while ((match = cssRegex.exec(indexContent)) !== null) {
     const cssFile = match[1];
     const cssPath = path.join(distPath, cssFile);
-
+    
     if (fs.existsSync(cssPath)) {
       console.log(`Inlining CSS: ${cssFile}`);
       const cssContent = fs.readFileSync(cssPath, "utf8");
       indexContent = indexContent.replace(
         match[0],
-        `<style>${cssContent}</style>`,
+        `<style>${cssContent}</style>`
       );
       cssCount++;
     } else {
       console.warn(`CSS file not found: ${cssPath}`);
     }
   }
-
+  
   // Inline JS modules
   const jsModuleRegex = /<script src="([^"]+\.js)" type="module"><\/script>/g;
   let jsModuleCount = 0;
@@ -45,20 +52,20 @@ gulp.task("inline-assets", function (done) {
   while ((match = jsModuleRegex.exec(indexContent)) !== null) {
     const jsFile = match[1];
     const jsPath = path.join(distPath, jsFile);
-
+    
     if (fs.existsSync(jsPath)) {
       console.log(`Inlining module JS: ${jsFile}`);
       const jsContent = fs.readFileSync(jsPath, "utf8");
       indexContent = indexContent.replace(
         match[0],
-        `<script type="module">${jsContent}</script>`,
+        `<script type="module">${jsContent}</script>`
       );
       jsModuleCount++;
     } else {
       console.warn(`JS module file not found: ${jsPath}`);
     }
   }
-
+  
   // Inline regular JS
   const jsRegex = /<script src="([^"]+\.js)"><\/script>/g;
   let jsCount = 0;
@@ -66,20 +73,20 @@ gulp.task("inline-assets", function (done) {
   while ((match = jsRegex.exec(indexContent)) !== null) {
     const jsFile = match[1];
     const jsPath = path.join(distPath, jsFile);
-
+    
     if (fs.existsSync(jsPath)) {
       console.log(`Inlining regular JS: ${jsFile}`);
       const jsContent = fs.readFileSync(jsPath, "utf8");
       indexContent = indexContent.replace(
         match[0],
-        `<script>${jsContent}</script>`,
+        `<script>${jsContent}</script>`
       );
       jsCount++;
     } else {
       console.warn(`JS file not found: ${jsPath}`);
     }
   }
-
+  
   // Write the modified content back to index.html
   fs.writeFileSync(indexPath, indexContent);
   

@@ -4,7 +4,7 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build": "ng build --configuration production && gulp inline-assets",
+    "build": "ng build --configuration production && gulp",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },
@@ -28,7 +28,6 @@
     "@angular/compiler-cli": "^19.2.0",
     "@types/jasmine": "~5.1.0",
     "gulp": "^4.0.2",
-    "gulp-inline-source": "^4.0.0",
     "gulp-replace": "^1.1.4",
     "jasmine-core": "~5.6.0",
     "karma": "~6.4.0",
