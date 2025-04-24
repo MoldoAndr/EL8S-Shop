@@ -102,8 +102,8 @@ echo -e "${BLUE}All images built and pushed successfully.${NC}"
 echo -e "${GREEN}Ingress manifest created.${NC}"
 
 # Step 8: Apply Kubernetes manifests
-echo -e "${BLUE}Waiting 15 seconds before applying Kubernetes manifests...${NC}"
-sleep 15
+echo -e "${BLUE}Waiting 30 seconds before applying Kubernetes manifests...${NC}"
+sleep 30
 
 echo -e "${BLUE}Applying Kubernetes manifests...${NC}"
 kubectl apply -f secret.yaml

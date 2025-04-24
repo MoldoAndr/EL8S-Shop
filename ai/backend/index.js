@@ -6,11 +6,20 @@ const fs = require('fs');
 const morgan = require('morgan');
 const { v4: uuidv4 } = require('uuid');
 const dotenv = require('dotenv');
+const https = require('https');
 
 const { BlobServiceClient } = require('@azure/storage-blob');
 const sql = require('mssql');
 const sdk = require('microsoft-cognitiveservices-speech-sdk');
-process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0
+
+const ca = fs.readFileSync('/etc/ssl/certs/ca-certificates.crt');
+const blobServiceClient = BlobServiceClient.fromConnectionString(
+  process.env.AZURE_STORAGE_CONNECTION_STRING,
+  {
+    httpsAgent: new https.Agent({ ca })
+  }
+);
+
 dotenv.config();
 
 const app = express();
@@ -53,9 +62,6 @@ const sqlConfig = {
   }
 };
 
-const blobServiceClient = BlobServiceClient.fromConnectionString(
-  process.env.AZURE_STORAGE_CONNECTION_STRING
-);
 const containerName = 'audio-files';
 
 async function initializeAzureResources() {

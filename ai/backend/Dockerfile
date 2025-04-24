@@ -1,9 +1,10 @@
-FROM node:18.20.8
-RUN apt-get update && apt-get install -y ca-certificates && update-ca-certificates
+FROM node:20-alpine
+RUN apk add --no-cache ca-certificates tzdata \
+ && sed -i '/DST Root CA X3/d' /etc/ssl/certs/ca-certificates.crt \
+ && update-ca-certificates
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
-COPY .env* ./
 COPY . .
 EXPOSE 89
 CMD ["node", "index.js"]
