@@ -38,6 +38,17 @@ spec:
           value: "89"
         - name: NODE_ENV
           value: "production"
+        # Add initialization command to check DNS and network connectivity
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            echo "Testing network connectivity..."
+            echo "Resolving Azure SQL Server DNS:"
+            nslookup stdtemaserver.database.windows.net || echo "DNS resolution failed"
+            echo "Testing connectivity to Azure SQL Server port 1433:"
+            nc -zv stdtemaserver.database.windows.net 1433 -w 5 || echo "Connection test failed"
+            echo "Starting application..."
+            node index.js
         volumeMounts:
         - name: uploads
           mountPath: /app/uploads
@@ -48,20 +59,6 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
-        readinessProbe:
-          httpGet:
-            path: /api/health
-            port: 89
-          initialDelaySeconds: 15
-          periodSeconds: 10
-          timeoutSeconds: 5
-        livenessProbe:
-          httpGet:
-            path: /api/health
-            port: 89
-          initialDelaySeconds: 30
-          periodSeconds: 30
-          timeoutSeconds: 5
       volumes:
       - name: uploads
         persistentVolumeClaim:

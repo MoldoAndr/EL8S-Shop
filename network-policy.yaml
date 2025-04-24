@@ -1,0 +1,15 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ai-backend-egress
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: ai-backend
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
