@@ -1,35 +1,35 @@
 <!-- src/app/app.component.html -->
-<div class="min-h-screen bg-gray-50 py-8">
-  <div class="container mx-auto px-4 max-w-6xl">
+<div class="min-h-screen py-8">
+  <div class="container">
     <!-- Header -->
-    <header class="text-center mb-10">
-      <h1 class="text-3xl font-bold text-blue-800 mb-2">Speech Translation Service</h1>
-      <p class="text-gray-600">Upload audio files and get translations in multiple languages</p>
+    <header class="header">
+      <h1>Speech Translation Service</h1>
+      <p>Upload audio files and get translations in multiple languages</p>
     </header>
     
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <div class="grid">
       <!-- Upload Section -->
-      <div class="bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-xl font-semibold text-gray-800 mb-4">Upload Audio File</h2>
+      <div class="card">
+        <h2 class="mb-4">Upload Audio File</h2>
         
         <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Audio File</label>
+          <label class="form-label">Audio File</label>
           <input 
             type="file" 
             (change)="onFileSelected($event)"
             accept=".wav,.mp3,.ogg,.m4a,.flac"
             [disabled]="isUploading"
-            class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            class="form-control"
           >
-          <p class="text-xs text-gray-500 mt-1">Supported formats: WAV, MP3, OGG, M4A, FLAC (max 50MB)</p>
+          <span class="form-hint">Supported formats: WAV, MP3, OGG, M4A, FLAC (max 50MB)</span>
         </div>
         
         <div class="mb-6">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Target Language</label>
+          <label class="form-label">Target Language</label>
           <select 
             [(ngModel)]="targetLanguage"
             [disabled]="isUploading"
-            class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            class="form-select"
           >
             <option *ngFor="let lang of languages" [value]="lang.code">{{ lang.name }}</option>
           </select>
@@ -38,70 +38,64 @@
         <button 
           (click)="uploadFile()"
           [disabled]="isUploading || !selectedAudioFile"
-          class="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-200 disabled:bg-blue-300 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          class="btn btn-primary btn-block"
         >
-          <span *ngIf="isUploading" class="inline-flex items-center">
-            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
+          <span *ngIf="isUploading" class="d-flex align-items-center justify-content-center">
+            <div class="spinner"></div>
             Uploading...
           </span>
           <span *ngIf="!isUploading">Translate Audio</span>
         </button>
         
-        <div *ngIf="uploadSuccess" class="mt-4 p-3 bg-green-100 border border-green-300 text-green-800 rounded-md">
+        <div *ngIf="uploadSuccess" class="alert alert-success mt-4">
           <p>File uploaded successfully! Processing has begun.</p>
           <p>You can check the results in the history panel.</p>
         </div>
         
-        <div *ngIf="uploadError" class="mt-4 p-3 bg-red-100 border border-red-300 text-red-800 rounded-md">
+        <div *ngIf="uploadError" class="alert alert-error mt-4">
           <p>Error: {{ uploadError }}</p>
         </div>
       </div>
       
       <!-- History Section -->
-      <div class="bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-xl font-semibold text-gray-800 mb-4">Translation History</h2>
+      <div class="card">
+        <h2 class="mb-4">Translation History</h2>
         
-        <div *ngIf="loading && (!files || files.length === 0)" class="text-center py-8">
-          <svg class="animate-spin mx-auto h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <p class="text-gray-600 mt-2">Loading translation history...</p>
+        <div *ngIf="loading && (!files || files.length === 0)" class="loading-placeholder">
+          <div class="spinner spinner-dark"></div>
+          <p class="text-gray mt-2">Loading translation history...</p>
         </div>
         
-        <div *ngIf="error" class="p-3 bg-red-100 border border-red-300 text-red-800 rounded-md">
+        <div *ngIf="error" class="alert alert-error">
           <p>{{ error }}</p>
           <button 
             (click)="loadFiles()"
-            class="mt-2 px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+            class="btn btn-primary mt-2"
           >
             Try Again
           </button>
         </div>
         
         <!-- Empty state -->
-        <div *ngIf="!loading && !error && (!files || files.length === 0)" class="text-center py-8">
-          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+        <div *ngIf="!loading && !error && (!files || files.length === 0)" class="loading-placeholder">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M19 11H5M19 11C20.1046 11 21 11.8954 21 13V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V13C3 11.8954 3.89543 11 5 11M19 11V9C19 7.89543 18.1046 7 17 7M5 11V9C5 7.89543 5.89543 7 7 7M7 7V5C7 3.89543 7.89543 3 9 3H15C16.1046 3 17 3.89543 17 5V7M7 7H17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray"/>
           </svg>
-          <p class="mt-2 text-gray-600">No translations found.</p>
-          <p class="text-gray-600">Upload an audio file to get started!</p>
+          <p class="mt-2 text-gray">No translations found.</p>
+          <p class="text-gray">Upload an audio file to get started!</p>
         </div>
         
         <!-- File List View -->
-        <div *ngIf="!selectedTranslationFile && files && files.length > 0" class="space-y-3 max-h-96 overflow-y-auto pr-2">
+        <div *ngIf="!selectedTranslationFile && files && files.length > 0" class="file-list">
           <div 
             *ngFor="let file of files"
-            class="bg-gray-50 p-4 rounded-md shadow-sm border border-gray-200 cursor-pointer hover:bg-gray-100 transition duration-200"
+            class="list-item"
             (click)="selectFile(file)"
           >
-            <div class="flex justify-between items-start">
+            <div class="d-flex justify-between align-items-start">
               <div>
-                <h3 class="font-medium text-gray-800">{{ file.FileName }}</h3>
-                <p class="text-sm text-gray-500">{{ formatDate(file.TimeStamp) }}</p>
+                <h3 class="mb-2">{{ file.FileName }}</h3>
+                <p class="text-gray">{{ formatDate(file.TimeStamp) }}</p>
               </div>
               <span [ngClass]="getStatusBadgeClass(file.TranslationResult)">
                 {{ getStatus(file.TranslationResult) }}
@@ -111,72 +105,65 @@
           
           <button 
             (click)="loadFiles()" 
-            class="w-full mt-4 py-2 px-4 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400"
+            class="btn btn-secondary btn-block mt-4"
           >
-            <svg class="inline-block w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            <svg class="inline-block" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 4V9H4.582M19.418 9H20V4M20 20V15H19.418M4.582 15H4V20M4.582 9C5.24585 6.35457 7.73128 4.5 10.5 4.5C12.7049 4.5 14.6722 5.64042 15.7423 7.36883M19.418 9C18.7541 6.35457 16.2687 4.5 13.5 4.5C12.4399 4.5 11.4334 4.76512 10.547 5.22252M4.582 15C5.24585 17.6454 7.73128 19.5 10.5 19.5C12.7049 19.5 14.6722 18.3596 15.7423 16.6312M19.418 15C18.7541 17.6454 16.2687 19.5 13.5 19.5C12.4399 19.5 11.4334 19.2349 10.547 18.7775" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
             Refresh List
           </button>
         </div>
         
         <!-- File Detail View -->
-        <div *ngIf="selectedTranslationFile" class="border border-gray-200 rounded-md">
-          <div class="flex justify-between items-center p-4 bg-gray-50 border-b border-gray-200">
-            <h3 class="font-medium text-gray-800 truncate max-w-xs">{{ selectedTranslationFile.FileName }}</h3>
+        <div *ngIf="selectedTranslationFile" class="border rounded">
+          <div class="file-header">
+            <h3 class="truncate max-w-xs">{{ selectedTranslationFile.FileName }}</h3>
             <button 
               (click)="backToList()"
-              class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400"
+              class="btn btn-secondary"
             >
               Back to List
             </button>
           </div>
           
           <div class="p-4">
-            <div class="space-y-3">
-              <div class="grid grid-cols-3">
-                <span class="font-medium text-gray-600">Status:</span>
-                <span class="col-span-2" [ngClass]="getStatusBadgeClass(selectedTranslationFile.TranslationResult)">
-                  {{ getStatus(selectedTranslationFile.TranslationResult) }}
-                </span>
-              </div>
-              <div class="grid grid-cols-3">
-                <span class="font-medium text-gray-600">Uploaded:</span>
-                <span class="col-span-2">{{ formatDate(selectedTranslationFile.TimeStamp) }}</span>
-              </div>
-              <div class="grid grid-cols-3">
-                <span class="font-medium text-gray-600">File ID:</span>
-                <span class="col-span-2">{{ selectedTranslationFile.Id }}</span>
-              </div>
+            <div class="file-details">
+              <span class="detail-label">Status:</span>
+              <span [ngClass]="getStatusBadgeClass(selectedTranslationFile.TranslationResult)">
+                {{ getStatus(selectedTranslationFile.TranslationResult) }}
+              </span>
+              
+              <span class="detail-label">Uploaded:</span>
+              <span>{{ formatDate(selectedTranslationFile.TimeStamp) }}</span>
+              
+              <span class="detail-label">File ID:</span>
+              <span>{{ selectedTranslationFile.Id }}</span>
             </div>
             
             <!-- Translation Result (Completed) -->
-            <div *ngIf="getStatus(selectedTranslationFile.TranslationResult) === 'Completed'" class="mt-6 border-t pt-4">
-              <h4 class="font-semibold text-gray-700 mb-2">Translation Result:</h4>
-              <div class="bg-gray-50 p-3 rounded-md border border-gray-200 max-h-60 overflow-y-auto">
-                <p class="whitespace-pre-wrap">{{ selectedTranslationFile.TranslationResult }}</p>
+            <div *ngIf="getStatus(selectedTranslationFile.TranslationResult) === 'Completed'" class="result-container">
+              <h4 class="mb-2">Translation Result:</h4>
+              <div class="result-box">
+                <p>{{ selectedTranslationFile.TranslationResult }}</p>
               </div>
             </div>
             
             <!-- Error Message (Failed) -->
-            <div *ngIf="getStatus(selectedTranslationFile.TranslationResult) === 'Failed'" class="mt-6 border-t pt-4">
-              <h4 class="font-semibold text-red-600 mb-2">Error:</h4>
-              <div class="bg-red-50 p-3 rounded-md border border-red-200">
-                <p class="text-red-800">{{ selectedTranslationFile.TranslationResult }}</p>
+            <div *ngIf="getStatus(selectedTranslationFile.TranslationResult) === 'Failed'" class="result-container">
+              <h4 class="mb-2">Error:</h4>
+              <div class="alert alert-error">
+                <p>{{ selectedTranslationFile.TranslationResult }}</p>
               </div>
             </div>
             
             <!-- Processing Message -->
-            <div *ngIf="getStatus(selectedTranslationFile.TranslationResult) === 'Processing' || getStatus(selectedTranslationFile.TranslationResult) === 'Pending'" class="mt-6 border-t pt-4">
-              <div class="bg-blue-50 p-3 rounded-md border border-blue-200 text-center">
-                <svg class="animate-spin h-6 w-6 mx-auto mb-2 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <p class="text-blue-800 mb-2">Your file is being processed. This may take a few moments.</p>
+            <div *ngIf="getStatus(selectedTranslationFile.TranslationResult) === 'Processing' || getStatus(selectedTranslationFile.TranslationResult) === 'Pending'" class="result-container">
+              <div class="alert alert-info text-center">
+                <div class="spinner spinner-dark mx-auto mb-2"></div>
+                <p class="mb-2">Your file is being processed. This may take a few moments.</p>
                 <button 
                   (click)="refreshFileDetails(selectedTranslationFile.Id)"
-                  class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 mt-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  class="btn btn-primary mt-2"
                 >
                   Check Status
                 </button>

@@ -1,4 +1,3 @@
-// src/app/app.component.ts
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -7,7 +6,6 @@ import { environment } from '../environments/environment';
 import { catchError } from 'rxjs/operators';
 import { throwError } from 'rxjs';
 
-// Models
 interface TranslationFile {
   Id: number;
   FileId?: string;
@@ -27,7 +25,6 @@ interface Language {
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
-  styleUrls: ['./app.component.css'],
   standalone: true,
   imports: [
     CommonModule,
@@ -36,23 +33,19 @@ interface Language {
   ]
 })
 export class AppComponent implements OnInit {
-  // API endpoint
-  private apiUrl = environment.apiUrl;
+  private apiUrl = environment.apiUrl; 
   
-  // Upload properties
   selectedAudioFile: File | null = null;
   targetLanguage: string = 'en-US';
   isUploading: boolean = false;
   uploadSuccess: boolean = false;
   uploadError: string = '';
   
-  // History properties
   files: TranslationFile[] = [];
   selectedTranslationFile: TranslationFile | null = null;
   loading: boolean = true;
   error: string = '';
   
-  // Language options
   languages: Language[] = [
     { code: 'en-US', name: 'English' },
     { code: 'fr-FR', name: 'French' },
@@ -69,22 +62,24 @@ export class AppComponent implements OnInit {
   constructor(private http: HttpClient) {}
   
   ngOnInit(): void {
+    console.log('Using API URL:', this.apiUrl);
+    
     this.loadFiles();
     
-    // Set up auto-refresh for file status changes
     setInterval(() => {
       if (this.selectedTranslationFile) {
         this.refreshFileDetails(this.selectedTranslationFile.Id);
-      } else {
+      } else if (!this.isUploading) {
         this.loadFiles(false);
       }
-    }, 10000); // Refresh every 10 seconds
+    }, 10000);
   }
   
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files.length > 0) {
       this.selectedAudioFile = input.files[0];
+      console.log('File selected:', this.selectedAudioFile.name);
     }
   }
   
@@ -102,24 +97,26 @@ export class AppComponent implements OnInit {
     formData.append('audioFile', this.selectedAudioFile);
     formData.append('targetLanguage', this.targetLanguage);
     
+    console.log('Uploading file to:', `${this.apiUrl}/upload`);
+    console.log('Target language:', this.targetLanguage);
+    
     this.http.post(`${this.apiUrl}/upload`, formData)
       .pipe(
-        catchError(this.handleError)
+        catchError(this.handleError.bind(this))
       )
       .subscribe({
         next: (response) => {
-          console.log('Upload success', response);
+          console.log('Upload success:', response);
           this.uploadSuccess = true;
           this.selectedAudioFile = null;
-          // Reset file input by clearing value
+          
           const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
           if (fileInput) fileInput.value = '';
           
-          // Load files to show the new upload
           setTimeout(() => this.loadFiles(), 1000);
         },
         error: (error) => {
-          console.error('Upload error', error);
+          console.error('Upload error:', error);
           this.uploadError = error.message || 'An error occurred during upload';
           this.isUploading = false;
         },
@@ -135,20 +132,22 @@ export class AppComponent implements OnInit {
     }
     this.error = '';
     
+    console.log('Loading files from:', `${this.apiUrl}/files`);
+    
     this.http.get<TranslationFile[]>(`${this.apiUrl}/files`)
       .pipe(
-        catchError(this.handleError)
+        catchError(this.handleError.bind(this))
       )
       .subscribe({
         next: (data) => {
-          // Sort by timestamp (newest first)
+          console.log('Files loaded:', data);
           this.files = data.sort((a, b) => 
             new Date(b.TimeStamp).getTime() - new Date(a.TimeStamp).getTime()
           );
           this.loading = false;
         },
         error: (err) => {
-          console.error('Error loading files', err);
+          console.error('Error loading files:', err);
           this.error = err.message || 'Failed to load translation history';
           this.loading = false;
         }
@@ -156,28 +155,32 @@ export class AppComponent implements OnInit {
   }
   
   refreshFileDetails(id: number): void {
+    console.log('Refreshing file details for ID:', id);
+    
     this.http.get<TranslationFile>(`${this.apiUrl}/files/${id}`)
       .pipe(
-        catchError(this.handleError)
+        catchError(this.handleError.bind(this))
       )
       .subscribe({
         next: (data) => {
+          console.log('File details refreshed:', data);
           this.selectedTranslationFile = data;
         },
         error: (err) => {
-          console.error('Error refreshing file details', err);
+          console.error('Error refreshing file details:', err);
         }
       });
   }
   
   selectFile(file: TranslationFile): void {
+    console.log('Selected file:', file);
     this.selectedTranslationFile = file;
     this.refreshFileDetails(file.Id);
   }
   
   backToList(): void {
     this.selectedTranslationFile = null;
-    this.loadFiles(); // Refresh the list when going back
+    this.loadFiles();
   }
   
   formatDate(dateString: string): string {
@@ -198,15 +201,15 @@ export class AppComponent implements OnInit {
     
     switch (status) {
       case 'Completed':
-        return 'px-2 py-1 text-xs rounded-full bg-green-100 text-green-800';
+        return 'badge badge-completed';
       case 'Processing':
-        return 'px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800';
+        return 'badge badge-processing';
       case 'Pending':
-        return 'px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800';
+        return 'badge badge-pending';
       case 'Failed':
-        return 'px-2 py-1 text-xs rounded-full bg-red-100 text-red-800';
+        return 'badge badge-failed';
       default:
-        return 'px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800';
+        return 'badge';
     }
   }
   
@@ -214,19 +217,15 @@ export class AppComponent implements OnInit {
     let errorMessage = 'An unknown error occurred';
     
     if (error.error instanceof ErrorEvent) {
-      // Client-side error
       errorMessage = `Error: ${error.error.message}`;
     } else {
-      // Server-side error
-      errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
+      console.error('HTTP Error:', error.status, error.message, error);
       
-      // Handle specific status codes
       if (error.status === 0) {
-        errorMessage = 'Cannot connect to the server. Please check your connection or try again later.';
+        errorMessage = `Cannot connect to the server at ${this.apiUrl}. Please check your connection or try again later.`;
       } else if (error.status === 404) {
         errorMessage = 'The requested resource was not found.';
       } else if (error.status === 500) {
-        errorMessage = 'Server error. Please try again later.';
       }
     }
     
