@@ -1,14 +1,22 @@
 // src/app/app.component.ts
 import { Component, OnInit } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { HttpClient, HttpClientModule, HttpErrorResponse } from '@angular/common/http';
+import { environment } from '../environments/environment';
+import { catchError } from 'rxjs/operators';
+import { throwError } from 'rxjs';
 
 // Models
 interface TranslationFile {
   Id: number;
+  FileId?: string;
   FileName: string;
   BlobUrl: string;
   TimeStamp: string;
   TranslationResult: string;
+  Status?: string;
+  TargetLanguage?: string;
 }
 
 interface Language {
@@ -20,11 +28,16 @@ interface Language {
   selector: 'app-root',
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css'],
-  standalone: false
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    HttpClientModule
+  ]
 })
 export class AppComponent implements OnInit {
   // API endpoint
-  private apiUrl = 'http://localhost:89/api';
+  private apiUrl = environment.apiUrl;
   
   // Upload properties
   selectedAudioFile: File | null = null;
@@ -90,6 +103,9 @@ export class AppComponent implements OnInit {
     formData.append('targetLanguage', this.targetLanguage);
     
     this.http.post(`${this.apiUrl}/upload`, formData)
+      .pipe(
+        catchError(this.handleError)
+      )
       .subscribe({
         next: (response) => {
           console.log('Upload success', response);
@@ -105,6 +121,7 @@ export class AppComponent implements OnInit {
         error: (error) => {
           console.error('Upload error', error);
           this.uploadError = error.message || 'An error occurred during upload';
+          this.isUploading = false;
         },
         complete: () => {
           this.isUploading = false;
@@ -119,6 +136,9 @@ export class AppComponent implements OnInit {
     this.error = '';
     
     this.http.get<TranslationFile[]>(`${this.apiUrl}/files`)
+      .pipe(
+        catchError(this.handleError)
+      )
       .subscribe({
         next: (data) => {
           // Sort by timestamp (newest first)
@@ -137,6 +157,9 @@ export class AppComponent implements OnInit {
   
   refreshFileDetails(id: number): void {
     this.http.get<TranslationFile>(`${this.apiUrl}/files/${id}`)
+      .pipe(
+        catchError(this.handleError)
+      )
       .subscribe({
         next: (data) => {
           this.selectedTranslationFile = data;
@@ -185,5 +208,28 @@ export class AppComponent implements OnInit {
       default:
         return 'px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800';
     }
+  }
+  
+  private handleError(error: HttpErrorResponse) {
+    let errorMessage = 'An unknown error occurred';
+    
+    if (error.error instanceof ErrorEvent) {
+      // Client-side error
+      errorMessage = `Error: ${error.error.message}`;
+    } else {
+      // Server-side error
+      errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
+      
+      // Handle specific status codes
+      if (error.status === 0) {
+        errorMessage = 'Cannot connect to the server. Please check your connection or try again later.';
+      } else if (error.status === 404) {
+        errorMessage = 'The requested resource was not found.';
+      } else if (error.status === 500) {
+        errorMessage = 'Server error. Please try again later.';
+      }
+    }
+    
+    return throwError(() => new Error(errorMessage));
   }
 }

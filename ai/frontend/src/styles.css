@@ -1,3 +1,47 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* src/styles.css */
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Custom styling for file inputs */
+input[type="file"] {
+  @apply text-gray-700 p-2 border border-gray-300 rounded-md bg-gray-50 cursor-pointer;
+}
+
+input[type="file"]:hover {
+  @apply border-blue-500 bg-blue-50;
+}
+
+input[type="file"]:disabled {
+  @apply opacity-60 cursor-not-allowed bg-gray-100 border-gray-300;
+}
+
+/* Result text container */
+.whitespace-pre-wrap {
+  @apply font-sans leading-relaxed text-sm;
+}
+
+/* Animations */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .grid-cols-3 {
+    @apply grid-cols-1;
+  }
+  
+  .col-span-2 {
+    @apply col-span-1;
+  }
+}
