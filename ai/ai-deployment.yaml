@@ -103,7 +103,7 @@ spec:
         - containerPort: 91
         env:
         - name: API_URL
-          value: "http://ai-backend:89/api"
+          value: "/api"
         resources:
           requests:
             memory: "128Mi"
@@ -116,20 +116,6 @@ apiVersion: v1
 kind: Service
 metadata:
   name: ai-frontend
-  namespace: default
-spec:
-  selector:
-    app: ai-frontend
-  ports:
-  - protocol: TCP
-    port: 91
-    targetPort: 91
-  type: ClusterIP
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: ai-direct
   namespace: default
 spec:
   selector:

@@ -2,7 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - secret.yaml
+- ingress.yaml
 - cms/statamic-deployment.yaml
 - chat/chat-deployment.yaml
 - ai/ai-deployment.yaml
-- ingress.yaml
