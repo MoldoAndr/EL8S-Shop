@@ -36,7 +36,7 @@ export class AppComponent implements OnInit {
   private apiUrl = environment.apiUrl; 
   
   selectedAudioFile: File | null = null;
-  targetLanguage: string = 'en-US';
+  targetLanguage: string = 'en';
   isUploading: boolean = false;
   uploadSuccess: boolean = false;
   uploadError: string = '';
@@ -47,16 +47,16 @@ export class AppComponent implements OnInit {
   error: string = '';
   
   languages: Language[] = [
-    { code: 'en-US', name: 'English' },
-    { code: 'fr-FR', name: 'French' },
-    { code: 'es-ES', name: 'Spanish' },
-    { code: 'de-DE', name: 'German' },
-    { code: 'it-IT', name: 'Italian' },
-    { code: 'ja-JP', name: 'Japanese' },
-    { code: 'ko-KR', name: 'Korean' },
-    { code: 'pt-BR', name: 'Portuguese (Brazil)' },
-    { code: 'ru-RU', name: 'Russian' },
-    { code: 'zh-CN', name: 'Chinese (Simplified)' }
+    { code: 'en', name: 'English' },
+    { code: 'fr', name: 'French' },
+    { code: 'es', name: 'Spanish' },
+    { code: 'de', name: 'German' },
+    { code: 'it', name: 'Italian' },
+    { code: 'ja', name: 'Japanese' },
+    { code: 'ko', name: 'Korean' },
+    { code: 'pt', name: 'Portuguese (Brazil)' },
+    { code: 'ru', name: 'Russian' },
+    { code: 'zh', name: 'Chinese (Simplified)' }
   ];
   
   constructor(private http: HttpClient) {}
