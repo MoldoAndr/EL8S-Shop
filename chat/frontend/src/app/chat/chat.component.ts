@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, NgZone, ChangeDetectorRef, ViewChild, ElementRef, ApplicationRef } from "@angular/core";
+import { Component, OnInit, OnDestroy, NgZone, ChangeDetectorRef, ViewChild, ElementRef } from "@angular/core";
 import { WebsocketService, Message } from "../services/websocket.service";
 import { Subscription } from "rxjs";
 import { FormBuilder, FormGroup, Validators } from "@angular/forms";
@@ -20,20 +20,17 @@ export class ChatComponent implements OnInit, OnDestroy {
   isLoggedIn: boolean = false;
   connectionStatus: string = "disconnected";
   errorMessage: string = "";
-  sentMessageIds: Set<string> = new Set(); // Track sent message IDs
 
   @ViewChild('chatMessages', { static: false }) chatMessagesContainer!: ElementRef<HTMLDivElement>;
 
   private messageSubscription: Subscription = new Subscription();
   private historySubscription: Subscription = new Subscription();
-  private connectionStatusSubscription: Subscription = new Subscription();
 
   constructor(
     private websocketService: WebsocketService,
     private fb: FormBuilder,
     private zone: NgZone,
-    private cdr: ChangeDetectorRef,
-    private appRef: ApplicationRef // Add ApplicationRef for triggering change detection
+    private cdr: ChangeDetectorRef
   ) {
     this.chatForm = this.fb.group({
       message: ["", Validators.required],
@@ -52,23 +49,15 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Subscribe to connection status
-    this.connectionStatusSubscription = this.websocketService
-      .getConnectionStatus()
-      .subscribe((status) => {
-        this.zone.run(() => {
-          this.connectionStatus = status;
-          this.cdr.detectChanges();
-        });
-      });
+    // Nothing to do here until login
   }
 
   login(): void {
     if (this.usernameForm.valid) {
       this.username = this.usernameForm.value.username;
+      this.connectionStatus = "connecting";
       this.errorMessage = "";
-      this.messages = []; // Clear messages on new login
-      
+
       try {
         this.websocketService.connect(this.username);
 
@@ -81,37 +70,25 @@ export class ChatComponent implements OnInit, OnDestroy {
 
               this.zone.run(() => {
                 if (message.type === "connect_success") {
-                  // Connection success is handled by the status subscription
+                  this.connectionStatus = "connected";
                 } else if (message.type === "error") {
                   this.errorMessage = message.message || "Unknown error";
-                  this.cdr.detectChanges();
+                  this.connectionStatus = "error";
                 } else if (
                   message.type === "chat" ||
+                  message.type === "message" ||
                   message.type === "system"
                 ) {
-                  // Check if this is a message we sent (avoid duplicates)
-                  if (message.id && this.sentMessageIds.has(message.id)) {
-                    console.log("Skipping already displayed message:", message.id);
-                    return;
-                  }
-                  
-                  // Add the message to our list
                   this.messages.push(message);
-                  
-                  // Force change detection
                   this.cdr.detectChanges();
-                  
-                  // Also force a global change detection cycle
-                  this.appRef.tick();
-                  
-                  // Scroll to bottom
-                  setTimeout(() => this.scrollToBottom(), 10);
+                  this.scrollToBottom(); // Scroll immediately after adding message
                 }
               });
             },
             error: (err) => {
               console.error("Message subscription error:", err);
               this.zone.run(() => {
+                this.connectionStatus = "error";
                 this.errorMessage = "Failed to receive messages";
                 this.cdr.detectChanges();
               });
@@ -126,17 +103,9 @@ export class ChatComponent implements OnInit, OnDestroy {
               console.log("History received:", history);
               if (history && history.length > 0) {
                 this.zone.run(() => {
-                  // Replace the messages array with history
-                  this.messages = [...history];
-                  
-                  // Force change detection
+                  this.messages = history;
                   this.cdr.detectChanges();
-                  
-                  // Also force a global change detection cycle
-                  this.appRef.tick();
-                  
-                  // Scroll after loading history
-                  setTimeout(() => this.scrollToBottom(), 100);
+                  this.scrollToBottom(); // Scroll after loading history
                 });
               }
             },
@@ -152,6 +121,7 @@ export class ChatComponent implements OnInit, OnDestroy {
         this.isLoggedIn = true;
       } catch (err) {
         console.error("Login error:", err);
+        this.connectionStatus = "error";
         this.errorMessage = "Failed to connect to chat server";
       }
     }
@@ -160,38 +130,27 @@ export class ChatComponent implements OnInit, OnDestroy {
   sendMessage(): void {
     if (this.chatForm.valid && this.websocketService.isConnected()) {
       const message = this.chatForm.value.message;
+      this.websocketService.sendMessage(this.username, message);
       
-      // Send the message and get the ID
-      const messageId = this.websocketService.sendMessage(this.username, message);
-      
-      if (messageId) {
-        // Track the message ID to avoid duplicates
-        this.sentMessageIds.add(messageId);
-        
-        // Optimistically add the message to the UI
-        this.messages.push({
-          id: messageId,
-          username: this.username,
-          message: message,
-          timestamp: new Date(),
-          type: 'chat'
-        });
-        
-        this.chatForm.reset();
-        
-        // Force change detection
-        this.cdr.detectChanges();
-        
-        // Scroll to bottom
-        setTimeout(() => this.scrollToBottom(), 10);
-      }
+      // Optimistically add the message to the UI
+      this.messages.push({
+        username: this.username,
+        message: message,
+        timestamp: new Date(),
+        type: 'chat'
+      });
+      this.chatForm.reset();
+      this.cdr.detectChanges();
+      this.scrollToBottom(); // Scroll after sending message
     } else if (!this.websocketService.isConnected()) {
       this.errorMessage = "Cannot send message: not connected to server";
+      this.connectionStatus = "error";
     }
   }
 
   reconnect(): void {
     if (this.username) {
+      this.connectionStatus = "connecting";
       this.errorMessage = "";
       this.websocketService.disconnect();
       this.websocketService.connect(this.username);
@@ -201,7 +160,10 @@ export class ChatComponent implements OnInit, OnDestroy {
   scrollToBottom(): void {
     if (this.chatMessagesContainer) {
       const container = this.chatMessagesContainer.nativeElement;
-      container.scrollTop = container.scrollHeight;
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: 'smooth' // Smooth scrolling for better UX
+      });
     }
   }
 
@@ -211,9 +173,6 @@ export class ChatComponent implements OnInit, OnDestroy {
     }
     if (this.historySubscription) {
       this.historySubscription.unsubscribe();
-    }
-    if (this.connectionStatusSubscription) {
-      this.connectionStatusSubscription.unsubscribe();
     }
     this.websocketService.disconnect();
   }

@@ -1,7 +1,6 @@
 const WebSocket = require('ws');
 const { MongoClient } = require('mongodb');
 const retry = require('async-retry');
-const crypto = require('crypto');
 
 // Configuration
 const CONFIG = {
@@ -20,7 +19,6 @@ const CONFIG = {
 let wss;
 let mongoClient;
 let db;
-let clients = new Map(); // Map to track clients and their usernames
 
 // Enhanced debugging
 function log(...args) {
@@ -58,11 +56,6 @@ async function connectToMongoDB() {
   });
 }
 
-// Generate a unique message ID
-function generateMessageId() {
-  return `${Date.now().toString(36)}-${crypto.randomBytes(4).toString('hex')}`;
-}
-
 // Initialize WebSocket server
 function initializeWebSocketServer() {
   wss = new WebSocket.Server({ port: CONFIG.wsPort });
@@ -70,10 +63,6 @@ function initializeWebSocketServer() {
 
   wss.on('connection', async (ws) => {
     log('New WebSocket client connected');
-    
-    // Add a client ID
-    const clientId = crypto.randomBytes(8).toString('hex');
-    ws.id = clientId;
 
     try {
       // Ensure database is connected
@@ -84,14 +73,7 @@ function initializeWebSocketServer() {
       // Send message history
       const history = await db.collection('messages').find().sort({ timestamp: 1 }).toArray();
       log(`Sending message history (${history.length} messages) to client`);
-      
-      // Ensure all history messages have IDs
-      const historyWithIds = history.map(msg => ({
-        ...msg,
-        id: msg.id || generateMessageId()
-      }));
-      
-      ws.send(JSON.stringify({ type: 'history', data: historyWithIds }));
+      ws.send(JSON.stringify({ type: 'history', data: history }));
 
       // Send connection confirmation
       ws.send(JSON.stringify({
@@ -129,26 +111,12 @@ function initializeWebSocketServer() {
           if (!parsedMsg.username || typeof parsedMsg.username !== 'string' || !isAscii(parsedMsg.username)) {
             throw new Error('Invalid or non-ASCII username');
           }
-          
-          // Store client username
-          clients.set(ws.id, parsedMsg.username);
-          
-          log(`User ${parsedMsg.username} connected (client ID: ${ws.id})`);
-          
-          // Create system message for new user
-          const systemMsg = {
-            id: generateMessageId(),
+          log(`User ${parsedMsg.username} connected`);
+          broadcastMessage({
             type: 'system',
             message: `${parsedMsg.username} has joined the chat`,
             timestamp: new Date(),
-          };
-          
-          // Save system message to database
-          await db.collection('messages').insertOne(systemMsg);
-          
-          // Broadcast user joined message
-          broadcastMessage(systemMsg);
-          
+          });
         } else if (parsedMsg.type === 'chat' || (!parsedMsg.type && parsedMsg.username && parsedMsg.message)) {
           // Validate chat message
           if (!parsedMsg.username || typeof parsedMsg.username !== 'string' || !isAscii(parsedMsg.username)) {
@@ -159,12 +127,7 @@ function initializeWebSocketServer() {
           }
 
           log(`Chat message from ${parsedMsg.username}: ${parsedMsg.message}`);
-          
-          // Ensure the message has an ID (use client-provided or generate new one)
-          const messageId = parsedMsg.id || generateMessageId();
-          
           const msgDoc = {
-            id: messageId,
             username: parsedMsg.username,
             message: parsedMsg.message,
             timestamp: new Date(),
@@ -191,33 +154,7 @@ function initializeWebSocketServer() {
     });
 
     ws.on('close', () => {
-      log(`WebSocket client disconnected (client ID: ${ws.id})`);
-      
-      // Get username if available
-      const username = clients.get(ws.id);
-      
-      // Remove from clients map
-      clients.delete(ws.id);
-      
-      // If we had a username, broadcast disconnect message
-      if (username) {
-        const systemMsg = {
-          id: generateMessageId(),
-          type: 'system',
-          message: `${username} has left the chat`,
-          timestamp: new Date(),
-        };
-        
-        // Save system message to database
-        db.collection('messages').insertOne(systemMsg)
-          .then(() => {
-            // Broadcast user left message
-            broadcastMessage(systemMsg);
-          })
-          .catch(err => {
-            error('Error saving disconnect message:', err.message);
-          });
-      }
+      log('WebSocket client disconnected');
     });
 
     ws.on('error', (err) => {
@@ -236,29 +173,16 @@ function broadcastMessage(message) {
     log('Cannot broadcast: WebSocket server not initialized');
     return;
   }
-  
-  const clientCount = wss.clients.size;
-  log(`Broadcasting message to ${clientCount} clients:`, message);
-  
-  if (clientCount === 0) {
-    log('No connected clients to broadcast to');
-    return;
-  }
-  
-  let sentCount = 0;
-  
+  log(`Broadcasting message to ${wss.clients.size} clients`);
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
       try {
         client.send(JSON.stringify(message));
-        sentCount++;
       } catch (err) {
         error('Error broadcasting to client:', err.message);
       }
     }
   });
-  
-  log(`Successfully sent message to ${sentCount}/${clientCount} clients`);
 }
 
 // ASCII validation
@@ -298,29 +222,10 @@ async function start() {
   try {
     await connectToMongoDB();
     initializeWebSocketServer();
-    
-    // Log readiness
-    log('Chat server is fully initialized and ready to accept connections');
   } catch (err) {
     error('Failed to start application:', err.message);
     process.exit(1);
   }
 }
-
-// Perform a MongoDB health check every minute
-setInterval(async () => {
-  try {
-    if (db) {
-      await db.command({ ping: 1 });
-      log('MongoDB health check: OK');
-    }
-  } catch (err) {
-    error('MongoDB health check failed:', err.message);
-    // Try to reconnect
-    connectToMongoDB().catch(err => {
-      error('Failed to reconnect to MongoDB:', err.message);
-    });
-  }
-}, 60000);
 
 start();

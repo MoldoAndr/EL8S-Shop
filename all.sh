@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
- 
+
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 RED='\033[0;31m'
@@ -93,6 +93,10 @@ echo -e "${GREEN}Ingress manifest created.${NC}"
 
 echo -e "${BLUE}Waiting 30 seconds before applying Kubernetes manifests...${NC}"
 sleep 30
+
+echo -e "${BLUE}Deleting existing Ingress resources...${NC}"
+kubectl delete ingress --all --namespace=default || echo -e "${GREEN}No existing Ingress resources found to delete.${NC}"
+echo -e "${GREEN}Existing Ingress resources deleted successfully.${NC}"
 
 echo -e "${BLUE}Applying Kubernetes manifests...${NC}"
 kubectl apply -f kubernetes/common/network-policy.yaml
