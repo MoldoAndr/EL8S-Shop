@@ -29,8 +29,7 @@ export class WebsocketService {
     const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
 
     // Use relative path for WebSocket to work with any domain
-    const wsUrl = `${wsProtocol}://${currentHost}/ws`;
-
+const wsUrl = `ws://chat-backend:88/`;
     console.log(`Connecting to WebSocket at ${wsUrl}`);
     
     // Close existing connection if any
