@@ -95,12 +95,16 @@ echo -e "${BLUE}Waiting 30 seconds before applying Kubernetes manifests...${NC}"
 sleep 30
 
 echo -e "${BLUE}Applying Kubernetes manifests...${NC}"
-kubectl apply -f network-policy.yaml
-kubectl apply -f secret.yaml
-kubectl apply -f ingress.yaml
-kubectl apply -f cms/statamic-deployment.yaml
-kubectl apply -f chat/chat-deployment.yaml
-kubectl apply -f ai/ai-deployment.yaml
+kubectl apply -f kubernetes/common/network-policy.yaml
+kubectl apply -f kubernetes/common/secret.yaml
+kubectl apply -f kubernetes/common/ingress.yaml
+kubectl apply -f kubernetes/cms/statamic-deployment.yaml
+kubectl apply -f kubernetes/chat/chat-deployment.yaml
+kubectl apply -f kubernetes/ai/ai-deployment.yaml
+
+# Alternatively, you can use the combined deployment file
+# echo -e "${BLUE}Applying all resources from combined deployment file...${NC}"
+# kubectl apply -f kubernetes/deploy-all.yaml
 
 echo -e "${GREEN}All manifests applied successfully.${NC}"
 

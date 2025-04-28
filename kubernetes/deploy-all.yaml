@@ -1,0 +1,505 @@
+# Combined deployment file for all components
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: default
+---
+# Common resources
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ai-backend-egress
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: ai-backend
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+---
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-ingress
+  namespace: default
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/websocket-services: "chat-backend"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: localhost
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: statamic-app
+            port:
+              number: 80
+      - path: /ai
+        pathType: Prefix
+        backend:
+          service:
+            name: statamic-app
+            port:
+              number: 80
+      - path: /chat
+        pathType: Prefix
+        backend:
+          service:
+            name: statamic-app
+            port:
+              number: 80
+      - path: /ai-service
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-frontend
+            port:
+              number: 91
+      - path: /chat-client
+        pathType: Prefix
+        backend:
+          service:
+            name: chat-frontend
+            port:
+              number: 90
+      - path: /ws
+        pathType: Prefix
+        backend:
+          service:
+            name: chat-backend
+            port:
+              number: 88
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ai-backend-ingress
+  namespace: default
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /api/$2
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: localhost
+    http:
+      paths:
+      - path: /ai-service/api(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-backend
+            port:
+              number: 89
+---
+# CMS resources
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: statamic-app
+  namespace: default
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: statamic-app
+  template:
+    metadata:
+      labels:
+        app: statamic-app
+    spec:
+      containers:
+      - name: statamic
+        image: localhost:5000/statamic-custom:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: APP_URL
+          value: "http://localhost"
+        - name: PHP_MEMORY_LIMIT
+          value: "512M"
+        - name: PHP_UPLOAD_MAX_FILESIZE
+          value: "10M"
+        - name: PHP_POST_MAX_SIZE
+          value: "10M"
+        - name: DB_CONNECTION
+          value: "mysql"
+        - name: DB_HOST
+          value: "statamic-db"
+        - name: DB_PORT
+          value: "3306"
+        - name: DB_DATABASE
+          value: "statamic"
+        - name: DB_USERNAME
+          value: "statamic"
+        - name: DB_PASSWORD
+          value: "statamic"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: statamic-app
+  namespace: default
+spec:
+  selector:
+    app: statamic-app
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: statamic-db
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: statamic-db
+  template:
+    metadata:
+      labels:
+        app: statamic-db
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:8.1
+        ports:
+        - containerPort: 3306
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "root"
+        - name: MYSQL_DATABASE
+          value: "statamic"
+        - name: MYSQL_USER
+          value: "statamic"
+        - name: MYSQL_PASSWORD
+          value: "statamic"
+        volumeMounts:
+        - name: mysql-data
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: mysql-data
+        persistentVolumeClaim:
+          claimName: statamic-db-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: statamic-db
+  namespace: default
+spec:
+  selector:
+    app: statamic-db
+  ports:
+  - protocol: TCP
+    port: 3306
+    targetPort: 3306
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: statamic-db-pvc
+  namespace: default
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+# Chat resources
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-backend
+  namespace: default
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: chat-backend
+  template:
+    metadata:
+      labels:
+        app: chat-backend
+    spec:
+      containers:
+        - name: chat-backend
+          image: localhost:5000/chat-backend:latest
+          ports:
+            - containerPort: 88
+          env:
+            - name: PORT_WS
+              value: "88"
+            - name: MONGO_URI
+              value: "mongodb://mongodb-service:27017/chatapp"
+            - name: NODE_ENV
+              value: "production"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-backend
+  namespace: default
+spec:
+  selector:
+    app: chat-backend
+  ports:
+    - protocol: TCP
+      port: 88
+      targetPort: 88
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-frontend
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chat-frontend
+  template:
+    metadata:
+      labels:
+        app: chat-frontend
+    spec:
+      containers:
+        - name: chat-frontend
+          image: localhost:5000/chat-frontend:latest
+          ports:
+            - containerPort: 90
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-frontend
+  namespace: default
+spec:
+  selector:
+    app: chat-frontend
+  ports:
+    - protocol: TCP
+      port: 90
+      targetPort: 90
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:latest
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: mongodb-data
+              mountPath: /data/db
+      volumes:
+        - name: mongodb-data
+          persistentVolumeClaim:
+            claimName: mongodb-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-service
+  namespace: default
+spec:
+  selector:
+    app: mongodb
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+# AI resources
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ai-uploads-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-backend
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-backend
+  template:
+    metadata:
+      labels:
+        app: ai-backend
+      annotations:
+        azure.workload.identity/use: "true"
+    spec:
+      containers:
+      - name: backend
+        image: localhost:5000/ai-backend:latest
+        ports:
+        - containerPort: 89
+        envFrom:
+        - secretRef:
+            name: azure-credentials
+        env:
+        - name: PORT
+          value: "89"
+        - name: NODE_ENV
+          value: "production"
+        # Add initialization command to check DNS and network connectivity
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            echo "Testing network connectivity..."
+            echo "Resolving Azure SQL Server DNS:"
+            nslookup stdtemaserver.database.windows.net || echo "DNS resolution failed"
+            echo "Testing connectivity to Azure SQL Server port 1433:"
+            nc -zv stdtemaserver.database.windows.net 1433 -w 5 || echo "Connection test failed"
+            echo "Starting application..."
+            node index.js
+        volumeMounts:
+        - name: uploads
+          mountPath: /app/uploads
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: uploads
+        persistentVolumeClaim:
+          claimName: ai-uploads-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-backend
+  namespace: default
+spec:
+  selector:
+    app: ai-backend
+  ports:
+  - protocol: TCP
+    port: 89
+    targetPort: 89
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-frontend
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-frontend
+  template:
+    metadata:
+      labels:
+        app: ai-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: localhost:5000/ai-frontend:latest
+        ports:
+        - containerPort: 91
+        env:
+        - name: API_URL
+          value: "/api"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-frontend
+  namespace: default
+spec:
+  selector:
+    app: ai-frontend
+  ports:
+  - protocol: TCP
+    port: 91
+    targetPort: 91
+  type: ClusterIP
