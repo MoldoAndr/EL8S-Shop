@@ -75,8 +75,10 @@ build_and_push() {
   cd $dir
   docker build -t registry.local:5000/$image_name:latest .
   docker tag registry.local:5000/$image_name:latest localhost:5000/$image_name:latest
+  docker tag registry.local:5000/$image_name:latest andreimoldovan2/$image_name:latest
   docker push localhost:5000/$image_name:latest
-  echo -e "${GREEN}$image_name built and pushed successfully.${NC}"
+  docker push andreimoldovan2/$image_name:latest
+  echo -e "${GREEN}$image_name built and pushed successfully to both repositories.${NC}"
   cd - > /dev/null
 }
 
