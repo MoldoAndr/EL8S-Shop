@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-frontend-lb
+  namespace: default
+spec:
+  type: LoadBalancer
+  selector:
+    app: chat-frontend  # Must match the labels of the chat-frontend pods
+  ports:
+  - protocol: TCP
+    port: 90
+    targetPort: 90
+    nodePort: 90  # Use a port in the range 30000-32767
+  externalIPs:
+  - 52.172.213.33
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-ws-lb
+  namespace: default
+spec:
+  type: LoadBalancer
+  selector:
+    app: chat-backend
+  ports:
+  - protocol: TCP
+    port: 88
+    targetPort: 88
+    nodePort: 88
+  externalIPs:
+  - 52.172.213.33

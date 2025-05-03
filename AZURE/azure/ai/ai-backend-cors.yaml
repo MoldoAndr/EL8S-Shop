@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-backend-cors
+  namespace: default
+data:
+  add-cors.js: |
+    // Middleware to add CORS headers
+    app.use((req, res, next) => {
+      // Allow requests from any origin
+      res.header('Access-Control-Allow-Origin', '*');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.header(
+        'Access-Control-Allow-Headers',
+        'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+      );
+      
+      // Handle preflight requests
+      if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+      }
+      
+      // Log incoming requests for debugging
+      console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+      
+      next();
+    });

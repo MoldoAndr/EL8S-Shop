@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-frontend-lb
+  namespace: default
+spec:
+  type: LoadBalancer
+  selector:
+    app: ai-frontend  # Must match the labels of the ai-frontend pods
+  ports:
+  - protocol: TCP
+    port: 91
+    targetPort: 91
+    nodePort: 91  # Use a port in the range 30000-32767
+  externalIPs:
+  - 52.172.213.33

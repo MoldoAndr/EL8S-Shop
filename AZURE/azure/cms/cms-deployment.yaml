@@ -1,0 +1,146 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: statamic-app
+  namespace: default
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: statamic-app
+  template:
+    metadata:
+      labels:
+        app: statamic-app
+    spec:
+      # Add pod anti-affinity to distribute across nodes
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - statamic-app
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: statamic
+        image: localhost:32000/statamic-custom:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: APP_URL
+          value: "http://localhost"
+        - name: PHP_MEMORY_LIMIT
+          value: "512M"
+        - name: PHP_UPLOAD_MAX_FILESIZE
+          value: "10M"
+        - name: PHP_POST_MAX_SIZE
+          value: "10M"
+        - name: DB_CONNECTION
+          value: "mysql"
+        - name: DB_HOST
+          value: "statamic-db"
+        - name: DB_PORT
+          value: "3306"
+        - name: DB_DATABASE
+          value: "statamic"
+        - name: DB_USERNAME
+          value: "statamic"
+        - name: DB_PASSWORD
+          value: "statamic"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: statamic-app
+  namespace: default
+spec:
+  selector:
+    app: statamic-app
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: statamic-db
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: statamic-db
+  template:
+    metadata:
+      labels:
+        app: statamic-db
+    spec:
+      containers:
+      - name: mysql
+        image: localhost:32000/mysql:8.1
+        ports:
+        - containerPort: 3306
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "root"
+        - name: MYSQL_DATABASE
+          value: "statamic"
+        - name: MYSQL_USER
+          value: "statamic"
+        - name: MYSQL_PASSWORD
+          value: "statamic"
+        volumeMounts:
+        - name: mysql-data
+          mountPath: /var/lib/mysql
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: mysql-data
+        persistentVolumeClaim:
+          claimName: statamic-db-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: statamic-db
+  namespace: default
+spec:
+  selector:
+    app: statamic-db
+  ports:
+  - protocol: TCP
+    port: 3306
+    targetPort: 3306
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: statamic-db-pvc
+  namespace: default
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: microk8s-hostpath

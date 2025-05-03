@@ -1,0 +1,95 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-ingress
+  namespace: default
+  annotations:
+    # Critical WebSocket support
+    nginx.ingress.kubernetes.io/websocket-services: "chat-backend"
+    
+    # Prevent websocket timeouts
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "3600"
+    
+    # Keep connection alive
+    nginx.ingress.kubernetes.io/connection-proxy-header: "keep-alive"
+    
+    # Other optimizations
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: statamic-app
+            port:
+              number: 80
+      - path: /ai
+        pathType: Prefix
+        backend:
+          service:
+            name: statamic-app
+            port:
+              number: 80
+      - path: /chat
+        pathType: Prefix
+        backend:
+          service:
+            name: statamic-app
+            port:
+              number: 80
+      - path: /ai-service
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-frontend
+            port:
+              number: 91
+      - path: /chat-client
+        pathType: Prefix
+        backend:
+          service:
+            name: chat-frontend
+            port:
+              number: 90
+      - path: /ws
+        pathType: Prefix
+        backend:
+          service:
+            name: chat-backend
+            port:
+              number: 88
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ai-backend-ingress
+  namespace: default
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /ai-service/api(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-backend
+            port:
+              number: 89

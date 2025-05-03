@@ -1,0 +1,202 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-nginx-conf
+  namespace: default
+data:
+  default.conf: |
+    server {
+        listen       91;
+        listen  [::]:91;
+        server_name  localhost;
+        
+        # For better debugging
+        error_log  /var/log/nginx/error.log debug;
+        access_log /var/log/nginx/access.log combined;
+
+        # Root location
+        location / {
+            root   /usr/share/nginx/html;
+            index  index.html index.htm;
+            try_files $uri $uri/ /index.html;
+        }
+
+        # Critical fix: Correctly map /ai-service/api/ to /api/
+        location /ai-service/api/ {
+            # Remove /ai-service from the URL path
+            rewrite ^/ai-service(/api/.*)$ $1 break;
+            proxy_pass http://ai-backend.default.svc.cluster.local:89;
+            
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            
+            # Add debug headers
+            add_header X-Debug-Original-URI $request_uri always;
+            add_header X-Debug-Rewritten-URI $uri always;
+        }
+
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   /usr/share/nginx/html;
+        }
+    }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ai-uploads-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: microk8s-hostpath
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-backend
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-backend
+  template:
+    metadata:
+      labels:
+        app: ai-backend
+      annotations:
+        azure.workload.identity/use: "true"
+    spec:
+      containers:
+      - name: backend
+        image: localhost:32000/ai-backend:latest
+        ports:
+        - containerPort: 89
+        envFrom:
+        - secretRef:
+            name: azure-credentials
+        volumeMounts:
+        - name: cors-script
+          mountPath: /app/cors-script.js
+          subPath: add-cors.js
+        env:
+        - name: PORT
+          value: "89"
+        - name: NODE_ENV
+          value: "production"
+        - name: BASE_API_PATH
+          value: ""
+        - name: ADD_CORS
+          value: "true"  
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            echo "Testing network connectivity..."
+            echo "Resolving Azure SQL Server DNS:"
+            nslookup stdtemaserver.database.windows.net || echo "DNS resolution failed"
+            echo "Testing connectivity to Azure SQL Server port 1433:"
+            nc -zv stdtemaserver.database.windows.net 1433 -w 5 || echo "Connection test failed"
+            echo "Starting application..."
+            node index.js
+        volumeMounts:
+        - name: uploads
+          mountPath: /app/uploads
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: uploads
+        persistentVolumeClaim:
+          claimName: ai-uploads-pvc
+      - name: cors-script
+        configMap:
+          name: ai-backend-cors
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-backend
+  namespace: default
+spec:
+  selector:
+    app: ai-backend
+  ports:
+  - protocol: TCP
+    port: 89
+    targetPort: 89
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-frontend
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-frontend
+  template:
+    metadata:
+      labels:
+        app: ai-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: localhost:32000/ai-frontend:latest
+        ports:
+        - containerPort: 91
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d/
+        env:
+        - name: API_URL
+          value: "/api"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: ai-nginx-conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-frontend
+  namespace: default
+spec:
+  selector:
+    app: ai-frontend
+  ports:
+  - protocol: TCP
+    port: 91
+    targetPort: 91
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-frontend-external
+  namespace: default
+spec:
+  type: ExternalName
+  externalName: ai-frontend.default.svc.cluster.local
+  ports:
+  - port: 91
+
