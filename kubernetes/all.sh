@@ -4,7 +4,7 @@ set -e
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 RED='\033[0;31m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 echo -e "${BLUE}========== Kubernetes Deployment Script ==========${NC}"
 
@@ -107,10 +107,6 @@ kubectl apply -f kubernetes/common/ingress.yaml
 kubectl apply -f kubernetes/cms/statamic-deployment.yaml
 kubectl apply -f kubernetes/chat/chat-deployment.yaml
 kubectl apply -f kubernetes/ai/ai-deployment.yaml
-
-# Alternatively, you can use the combined deployment file
-# echo -e "${BLUE}Applying all resources from combined deployment file...${NC}"
-# kubectl apply -f kubernetes/deploy-all.yaml
 
 echo -e "${GREEN}All manifests applied successfully.${NC}"
 

@@ -40,10 +40,18 @@ const upload = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = /wav|mp3|ogg|m4a|flac/;
-    const mimetype = allowed.test(file.mimetype);
-    const extname = allowed.test(path.extname(file.originalname).toLowerCase());
-    return mimetype && extname ? cb(null, true) : cb(new Error('Only audio files allowed'));
+    const allowedMimeTypes = /audio\/(wav|x-wav|mp3|mpeg|ogg|m4a|flac|x-flac)/;
+    const allowedExtensions = /\.(wav|mp3|ogg|m4a|flac)$/i;
+    
+    const mimetypeValid = allowedMimeTypes.test(file.mimetype);
+    const extnameValid = allowedExtensions.test(path.extname(file.originalname).toLowerCase());
+    
+    if (mimetypeValid && extnameValid) {
+      return cb(null, true);
+    } else {
+      console.log(`Rejecting file: ${file.originalname} (${file.mimetype})`);
+      return cb(new Error('Only audio files (WAV, MP3, OGG, M4A, FLAC) are allowed'));
+    }
   }
 });
 
