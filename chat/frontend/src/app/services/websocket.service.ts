@@ -1,3 +1,4 @@
+// WebSocket service with MongoDB _id compatibility
 import { Injectable } from "@angular/core";
 import { Observable, Subject, BehaviorSubject } from "rxjs";
 
@@ -8,6 +9,7 @@ export interface Message {
   type?: string;
   data?: any;
   id?: string; 
+  _id?: string; // Added MongoDB-style _id field
 }
 
 @Injectable({
@@ -18,14 +20,15 @@ export class WebsocketService {
   private messages: Subject<Message> = new Subject<Message>();
   private connectionStatus = new BehaviorSubject<string>("disconnected");
   private connectionAttempts = 0;
-  private maxRetries = 5; // Increased from 3
+  private maxRetries = 5;
   private messageHistory: Message[] = [];
+  private sentMessageIds: Set<string> = new Set();
   
-  // Endpoint options to try in sequence if connection fails
+  // Endpoints to try in sequence if connection fails
   private wsEndpoints = [
-    "/ws",         // Standard endpoint from Ingress
-    "/chat/ws",    // Alternative path
-    "//localhost/ws"  // Direct to localhost
+    "/ws",
+    "/chat/ws",
+    "//localhost/ws"
   ];
   private currentEndpointIndex = 0;
 
@@ -90,23 +93,27 @@ export class WebsocketService {
           console.log("WebSocket message received:", event.data);
           const data = JSON.parse(event.data);
           
-          // Add a unique ID to the message if it doesn't have one
-          if (!data.id && (data.type === 'chat' || data.type === 'system')) {
-            data.id = this.generateMessageId();
-          }
-          
           // Handle history differently
           if (data.type === 'history') {
             if (data.data && Array.isArray(data.data)) {
-              // Add IDs to history messages if they don't have them
+              // Process history data, ensuring IDs are present
               this.messageHistory = data.data.map(msg => ({
                 ...msg,
-                id: msg.id || this.generateMessageId()
+                id: msg.id || msg._id || this.generateMessageId()
               }));
             }
+            this.messages.next(data);
+            return;
           }
           
-          // Emit the message to subscribers
+          // Check for sent message ID match (check both id and _id)
+          const messageId = this.getMessageId(data);
+          if (messageId && this.sentMessageIds.has(messageId)) {
+            console.log(`Skipping message with ID ${messageId} that we sent ourselves`);
+            return;
+          }
+          
+          // Forward the message
           this.messages.next(data);
         } catch (error) {
           console.error("Error parsing WebSocket message:", error);
@@ -148,22 +155,12 @@ export class WebsocketService {
             timestamp: new Date()
           });
           this.connectionStatus.next("error");
-          
-          // Show detailed error information for debugging
-          this.messages.next({
-            type: "error",
-            message: `Debug info: Attempted ${this.connectionAttempts} times across ${this.wsEndpoints.length} endpoints. Last endpoint: ${this.wsEndpoints[this.currentEndpointIndex]}`,
-            id: this.generateMessageId(),
-            timestamp: new Date()
-          });
         }
       };
 
       this.websocket.onerror = (error) => {
         console.error("WebSocket error:", error);
         this.connectionStatus.next("error");
-        
-        // Let onclose handle reconnection logic
       };
     } catch (err) {
       console.error("Error creating WebSocket:", err);
@@ -187,12 +184,31 @@ export class WebsocketService {
     }
   }
 
+  // Extract message ID from either id or _id field
+  private getMessageId(message: any): string {
+    if (message._id) {
+      return message._id.toString();
+    }
+    if (message.id) {
+      return message.id.toString();
+    }
+    return '';
+  }
+
   sendMessage(username: string, message: string): string | null {
     if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
       console.log("Sending message:", message);
       
       // Generate a message ID
       const messageId = this.generateMessageId();
+      
+      // Track the message ID to avoid duplicates
+      this.sentMessageIds.add(messageId);
+      
+      // Clean up old IDs after a delay
+      setTimeout(() => {
+        this.sentMessageIds.delete(messageId);
+      }, 30000); // 30 seconds
       
       // Send message with ID
       this.websocket.send(
@@ -235,7 +251,7 @@ export class WebsocketService {
     return new Observable((observer) => {
       const subscription = this.messages.subscribe((msg) => {
         if (msg.type === "history") {
-          console.log("Received history:", msg.data || msg.message);
+          console.log("Received history:", msg.data || msg.messages);
           observer.next(this.messageHistory);
         }
       });
@@ -252,6 +268,9 @@ export class WebsocketService {
       this.websocket.close();
       this.connectionStatus.next("disconnected");
     }
+    
+    // Clear sent IDs when disconnecting
+    this.sentMessageIds.clear();
   }
 
   isConnected(): boolean {

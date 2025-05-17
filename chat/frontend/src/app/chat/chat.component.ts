@@ -1,3 +1,4 @@
+// Emergency direct fix for chat component
 import { Component, OnInit, OnDestroy, NgZone, ChangeDetectorRef, ViewChild, ElementRef } from "@angular/core";
 import { WebsocketService, Message } from "../services/websocket.service";
 import { Subscription } from "rxjs";
@@ -20,6 +21,10 @@ export class ChatComponent implements OnInit, OnDestroy {
   isLoggedIn: boolean = false;
   connectionStatus: string = "disconnected";
   errorMessage: string = "";
+  isSending: boolean = false;
+  
+  // Simple dictionary to track message IDs with timestamps for deduplication
+  private processedMessages: {[key: string]: number} = {};
 
   @ViewChild('chatMessages', { static: false }) chatMessagesContainer!: ElementRef<HTMLDivElement>;
 
@@ -79,9 +84,16 @@ export class ChatComponent implements OnInit, OnDestroy {
                   message.type === "message" ||
                   message.type === "system"
                 ) {
+                  // CRITICAL FIX: Check if this is a duplicate message
+                  if (this.isDuplicate(message)) {
+                    console.log("DUPLICATE DETECTED - SKIPPING MESSAGE:", message);
+                    return;
+                  }
+                  
+                  // Not a duplicate, add it to the list
                   this.messages.push(message);
                   this.cdr.detectChanges();
-                  this.scrollToBottom(); // Scroll immediately after adding message
+                  this.scrollToBottom();
                 }
               });
             },
@@ -103,9 +115,18 @@ export class ChatComponent implements OnInit, OnDestroy {
               console.log("History received:", history);
               if (history && history.length > 0) {
                 this.zone.run(() => {
-                  this.messages = history;
+                  this.messages = [];
+                  this.processedMessages = {}; // Reset processed messages
+                  
+                  // Add each history message with deduplication
+                  history.forEach(msg => {
+                    if (!this.isDuplicate(msg)) {
+                      this.messages.push(msg);
+                    }
+                  });
+                  
                   this.cdr.detectChanges();
-                  this.scrollToBottom(); // Scroll after loading history
+                  this.scrollToBottom();
                 });
               }
             },
@@ -127,21 +148,69 @@ export class ChatComponent implements OnInit, OnDestroy {
     }
   }
 
+  // SIMPLIFIED and DIRECT approach for deduplication
+  private isDuplicate(message: any): boolean {
+    // Get the ID with MongoDB _id compatibility
+    let msgId = '';
+    
+    // First try MongoDB _id (this is what shows in your logs)
+    if (message._id) {
+      msgId = message._id.toString();
+    } 
+    // Then try regular id
+    else if (message.id) {
+      msgId = message.id.toString();
+    }
+    
+    // If no ID, create a content-based ID
+    if (!msgId && message.username && message.message && message.timestamp) {
+      msgId = `${message.username}:${message.message}:${message.timestamp}`;
+    }
+    
+    // No way to identify this message
+    if (!msgId) {
+      return false;
+    }
+    
+    // Check if we've seen this message in the last 5 seconds
+    const now = Date.now();
+    if (this.processedMessages[msgId] && now - this.processedMessages[msgId] < 5000) {
+      console.log(`DUPLICATE: Message ID ${msgId} was seen ${now - this.processedMessages[msgId]}ms ago`);
+      return true;
+    }
+    
+    // Not a duplicate, record it
+    this.processedMessages[msgId] = now;
+    
+    // Clean up old entries every 100 messages to prevent memory leaks
+    if (Object.keys(this.processedMessages).length > 100) {
+      const cutoff = now - 60000; // 1 minute
+      for (const id in this.processedMessages) {
+        if (this.processedMessages[id] < cutoff) {
+          delete this.processedMessages[id];
+        }
+      }
+    }
+    
+    return false;
+  }
+
   sendMessage(): void {
-    if (this.chatForm.valid && this.websocketService.isConnected()) {
+    if (this.chatForm.valid && this.websocketService.isConnected() && !this.isSending) {
       const message = this.chatForm.value.message;
+      this.isSending = true;
+      
+      // Send message (WebsocketService will handle it)
       this.websocketService.sendMessage(this.username, message);
       
-      // Optimistically add the message to the UI
-      this.messages.push({
-        username: this.username,
-        message: message,
-        timestamp: new Date(),
-        type: 'chat'
-      });
+      // Clear the form
       this.chatForm.reset();
-      this.cdr.detectChanges();
-      this.scrollToBottom(); // Scroll after sending message
+      
+      // Reset sending flag after a delay
+      setTimeout(() => {
+        this.isSending = false;
+      }, 500);
+      
     } else if (!this.websocketService.isConnected()) {
       this.errorMessage = "Cannot send message: not connected to server";
       this.connectionStatus = "error";
@@ -162,7 +231,7 @@ export class ChatComponent implements OnInit, OnDestroy {
       const container = this.chatMessagesContainer.nativeElement;
       container.scrollTo({
         top: container.scrollHeight,
-        behavior: 'smooth' // Smooth scrolling for better UX
+        behavior: 'smooth'
       });
     }
   }

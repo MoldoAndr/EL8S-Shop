@@ -4,4 +4,4 @@ COPY package*.json ./
 RUN npm install
 COPY . .
 EXPOSE 88
-CMD ["npm", "start"]
+CMD ["node", "index.js"]

@@ -58,22 +58,9 @@ spec:
       labels:
         app: chat-backend
     spec:
-      # Add pod anti-affinity to distribute across nodes
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            podAffinityTerm:
-              labelSelector:
-                matchExpressions:
-                - key: app
-                  operator: In
-                  values:
-                  - chat-backend
-              topologyKey: kubernetes.io/hostname
       containers:
         - name: chat-backend
-          image: localhost:32000/chat-backend:latest
+          image: localhost:5000/chat-backend:latest
           ports:
             - containerPort: 88
           env:
@@ -81,6 +68,8 @@ spec:
               value: "88"
             - name: MONGO_URI
               value: "mongodb://mongodb-service:27017/chatapp"
+            - name: REDIS_URL
+              value: "redis://redis:6379" 
             - name: NODE_ENV
               value: "production"
           resources:
